@@ -1,10 +1,11 @@
 /**
- * API configuration. When `VITE_API_BASE_URL` is provided the app is expected
- * to talk to Amazon API Gateway; until then the mock service layer is used.
+ * API configuration. `VITE_API_BASE_URL` can override the base URL; by default
+ * the Vite dev proxy at `/api` forwards to the FastAPI backend on port 8000.
  */
-export const API_BASE_URL = (import.meta.env["VITE_API_BASE_URL"] as string | undefined) ?? "";
+export const API_BASE_URL = (import.meta.env["VITE_API_BASE_URL"] as string | undefined) ?? "/api";
 
-export const USE_MOCK_BACKEND = API_BASE_URL === "";
+/** Set to true to fall back to the in-browser mock service layer (offline dev). */
+export const USE_MOCK_BACKEND = false;
 
 export const ENVIRONMENT_LABEL =
   (import.meta.env["VITE_ENVIRONMENT_LABEL"] as string | undefined) ?? "Demo / Synthetic Data";
@@ -20,6 +21,7 @@ export const ENDPOINTS = {
   patientSummary: (id: string) => `/patients/${id}/summary`,
   patientReferrals: (id: string) => `/patients/${id}/referrals`,
   runWorkflow: (id: string) => `/patients/${id}/workflow/run`,
+  streamWorkflow: (id: string) => `/patients/${id}/workflow/stream`,
   referrals: "/referrals",
   referral: (id: string) => `/referrals/${id}`,
   workflows: "/workflows",

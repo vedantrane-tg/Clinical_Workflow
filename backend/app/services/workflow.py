@@ -1,12 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Patient, Referral, ReferralRule, Specialist, WorkflowExecution
-from app.services.ids import next_referral_id, next_workflow_id, utcnow, write_audit
-
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
 from app.models import (
     ClinicalSummary,
     ExtractedEHR,
@@ -23,8 +17,7 @@ from app.services.ids import (
     utcnow,
     write_audit,
 )
-
-from app.services.ai_summary import generate_ai_narrative
+from app.services.ai_summary import build_rich_clinical_summary
 
 def _lab_matches(patient: Patient, expression: dict) -> bool:
     test = expression.get("test")
@@ -49,11 +42,68 @@ def _lab_matches(patient: Patient, expression: dict) -> bool:
     return False
 
 
-def run_patient_workflow(db: Session, *, patient: Patient, actor_name: str, actor_role: str) -> WorkflowExecution:
+def _build_snapshot(workflow_id, patient, status, current_agent, started, agent_steps, error=None, completed=None, duration_ms=None) -> dict:
+    """Build a JSON-serializable workflow snapshot for SSE events."""
+    return {
+        "workflow_id": workflow_id,
+        "patient_id": patient.patient_id,
+        "patient_name": patient.name,
+        "status": status,
+        "current_agent": current_agent,
+        "started_at": started.isoformat(),
+        "completed_at": completed.isoformat() if completed else None,
+        "duration_ms": duration_ms,
+        "agent_steps": agent_steps,
+        "error": error,
+    }
+
+
+def run_patient_workflow_streaming(db: Session, *, patient: Patient, actor_name: str, actor_role: str):
+    """
+    Generator that yields JSON-serializable workflow snapshots after each agent step.
+    The final yield is the completed workflow. Commits to DB at the end.
+    """
+    import time
+
     started = utcnow()
     workflow_id = next_workflow_id(db)
 
+    # Initialise agent_steps as dicts (JSON-serializable)
+    agent_steps = [
+        {
+            "agent_id": "ehr-extractor",
+            "name": "EHR Extraction",
+            "status": "Waiting",
+            "output_summary": None,
+            "output": None,
+            "error": None,
+        },
+        {
+            "agent_id": "patient-summary",
+            "name": "Clinical Summary",
+            "status": "Waiting",
+            "output_summary": None,
+            "output": None,
+            "error": None,
+        },
+        {
+            "agent_id": "referral-orchestrator",
+            "name": "Referral Orchestration",
+            "status": "Waiting",
+            "output_summary": None,
+            "output": None,
+            "error": None,
+        },
+    ]
+
+    # ── Yield initial "Queued" state ──
+    yield _build_snapshot(workflow_id, patient, "Queued", None, started, agent_steps)
+
     # ---------- Agent 1: EHR Extraction ----------
+    agent_steps[0]["status"] = "Running"
+    yield _build_snapshot(workflow_id, patient, "Extracting", "EHR Extraction", started, agent_steps)
+    time.sleep(1.2)  # simulate agent processing time
+
     ehr_payload = {
         "demographics": {
             "patientId": patient.patient_id,
@@ -76,7 +126,21 @@ def run_patient_workflow(db: Session, *, patient: Patient, actor_name: str, acto
         for key, value in ehr_payload.items():
             setattr(existing_ehr, key, value)
 
+    agent_steps[0]["status"] = "Completed"
+    agent_steps[0]["output_summary"] = (
+        f"{len(patient.conditions or [])} conditions · "
+        f"{len(patient.medications or [])} medications · "
+        f"{len(patient.encounters or [])} encounters · "
+        f"{len(patient.labs or [])} lab results"
+    )
+    agent_steps[0]["output"] = {**ehr_payload, "extracted_at": started.isoformat()}
+    yield _build_snapshot(workflow_id, patient, "Extracting", "EHR Extraction", started, agent_steps)
+
     # ---------- Agent 2: Clinical Summary ----------
+    agent_steps[1]["status"] = "Running"
+    yield _build_snapshot(workflow_id, patient, "Summarizing", "Clinical Summary", started, agent_steps)
+    time.sleep(1.0)  # simulate agent processing time
+
     rules = list(db.scalars(select(ReferralRule).where(ReferralRule.enabled == True)).all())  # noqa: E712
     matched = [r for r in rules if _lab_matches(patient, r.expression or {})]
 
@@ -106,13 +170,7 @@ def run_patient_workflow(db: Session, *, patient: Patient, actor_name: str, acto
             }
         )
 
-    # abnormal = [lab for lab in (patient.labs or []) if lab.get("status") in {"HIGH", "LOW", "CRITICAL"}]
-    # condition_names = ", ".join(c.get("name", "") for c in (patient.conditions or [])) or "no active conditions"
-
-    abnormal = [lab for lab in (patient.labs or []) if lab.get("status") in {"HIGH", "LOW", "CRITICAL"}]
-    condition_names = ", ".join(c.get("name", "") for c in (patient.conditions or [])) or "no active conditions"
-
-    # Build EHR + rules payloads for the AI
+    # Build EHR + rules payloads for AI
     ehr_for_ai = {
         "patient_id": patient.patient_id,
         "name": patient.name,
@@ -137,50 +195,34 @@ def run_patient_workflow(db: Session, *, patient: Patient, actor_name: str, acto
         for r in rules
     ]
 
-    ai_result = generate_ai_narrative(ehr_for_ai, rules_for_ai)
+    summary_payload = build_rich_clinical_summary(
+        patient=patient,
+        rules=rules,
+        issues=issues,
+        ehr_for_ai=ehr_for_ai,
+        rules_for_ai=rules_for_ai,
+    )
 
-    if ai_result is not None:
-        narrative = ai_result["narrative"]
-        summary_payload = {
-            "summary": narrative.get("summary", ""),
-            "sections": narrative.get("sections", []),
-            "concerns": narrative.get("concerns", [i["issue"] for i in issues]),
-            "abnormal_labs": abnormal,
-            "medication_conflicts": narrative.get("medication_conflicts", []),
-            "recommended_actions": narrative.get(
-                "recommended_actions",
-                [f"Refer to {i['recommended_specialist']} for {i['issue']}" for i in issues],
-            ),
-            "issues": issues,  # keep rule-based issues for referrals
-            "generated_at": utcnow(),
-            "model": ai_result["model"],
-        }
-    else:
-        # Fallback if AI key missing or API fails
-        summary_payload = {
-            "summary": (
-                f"{patient.name} is a {patient.age}-year-old {patient.gender.lower()} with {condition_names}. "
-                f"{len(issues)} referral trigger(s) detected."
-            ),
-            "sections": [
-                {"heading": "Conditions", "body": condition_names},
-                {
-                    "heading": "Abnormal labs",
-                    "body": ", ".join(f"{l['test']} {l['value']}" for l in abnormal) or "None",
-                },
-            ],
-            "concerns": [i["issue"] for i in issues],
-            "abnormal_labs": abnormal,
-            "medication_conflicts": [],
-            "recommended_actions": [
-                f"Refer to {i['recommended_specialist']} for {i['issue']}" for i in issues
-            ],
-            "issues": issues,
-            "generated_at": utcnow(),
-            "model": "rules-engine-v1",
-        }
+    agent_steps[1]["status"] = "Completed"
+    agent_steps[1]["output_summary"] = (
+        f"Clinical summary generated · {len(issues)} issue(s) flagged · "
+        f"{len(summary_payload.get('medication_conflicts', []))} medication conflict(s)"
+    )
+    agent_steps[1]["output"] = {
+        **summary_payload,
+        "generated_at": (
+            summary_payload["generated_at"].isoformat()
+            if hasattr(summary_payload.get("generated_at"), "isoformat")
+            else str(summary_payload.get("generated_at"))
+        ),
+    }
+    yield _build_snapshot(workflow_id, patient, "Summarizing", "Clinical Summary", started, agent_steps)
 
     # ---------- Agent 3: Referral Orchestration ----------
+    agent_steps[2]["status"] = "Running"
+    yield _build_snapshot(workflow_id, patient, "Orchestrating Referral", "Referral Orchestration", started, agent_steps)
+    time.sleep(1.0)  # simulate agent processing time
+
     created_ids: list[str] = []
     for issue in issues:
         specialty = issue["recommended_specialist"]
@@ -226,6 +268,19 @@ def run_patient_workflow(db: Session, *, patient: Patient, actor_name: str, acto
     completed = utcnow()
     duration_ms = int((completed - started).total_seconds() * 1000)
 
+    agent_steps[2]["status"] = "Completed"
+    if created_ids:
+        agent_steps[2]["output_summary"] = (
+            f"{len(created_ids)} referral(s) created: "
+            + ", ".join(created_ids)
+        )
+    else:
+        agent_steps[2]["output_summary"] = "No referral rules triggered — no referral created."
+    agent_steps[2]["output"] = {
+        "matched_rules": [r.rule_id for r in matched],
+        "referral_ids": created_ids,
+    }
+
     workflow = WorkflowExecution(
         workflow_id=workflow_id,
         patient_id=patient.patient_id,
@@ -235,35 +290,7 @@ def run_patient_workflow(db: Session, *, patient: Patient, actor_name: str, acto
         started_at=started,
         completed_at=completed,
         duration_ms=duration_ms,
-        agent_steps=[
-            {
-                "agent_id": "ehr-extractor",
-                "name": "EHR Extraction",
-                "status": "Completed",
-                "output_summary": f"Extracted chart for {patient.patient_id}",
-                "output": {"source": ehr_payload["source"]},
-                "error": None,
-            },
-            {
-                "agent_id": "patient-summary",
-                "name": "Clinical Summary",
-                "status": "Completed",
-                "output_summary": f"{len(issues)} issue(s) flagged",
-                "output": {"issue_count": len(issues)},
-                "error": None,
-            },
-            {
-                "agent_id": "referral-orchestrator",
-                "name": "Referral Orchestration",
-                "status": "Completed",
-                "output_summary": f"Created {len(created_ids)} referral(s)",
-                "output": {
-                    "matched_rules": [r.rule_id for r in matched],
-                    "referral_ids": created_ids,
-                },
-                "error": None,
-            },
-        ],
+        agent_steps=agent_steps,
         error=None,
     )
     db.add(workflow)
@@ -284,4 +311,20 @@ def run_patient_workflow(db: Session, *, patient: Patient, actor_name: str, acto
         agent="workflow",
         result="Success",
     )
-    return workflow
+
+    db.commit()
+    db.refresh(workflow)
+
+    # ── Final "Completed" snapshot ──
+    yield _build_snapshot(workflow_id, patient, "Completed", None, started, agent_steps, completed=completed, duration_ms=duration_ms)
+
+
+def run_patient_workflow(db: Session, *, patient: Patient, actor_name: str, actor_role: str) -> WorkflowExecution:
+    """Non-streaming version: runs all steps and returns the final WorkflowExecution ORM object."""
+    # Consume the generator, ignoring intermediate snapshots
+    last_snapshot = None
+    for snapshot in run_patient_workflow_streaming(db, patient=patient, actor_name=actor_name, actor_role=actor_role):
+        last_snapshot = snapshot
+
+    # Return the persisted ORM object
+    return db.get(WorkflowExecution, last_snapshot["workflow_id"])

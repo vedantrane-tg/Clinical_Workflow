@@ -3,3 +3,5 @@ uvicorn
 sqlalchemy
 google-genai
 python-dotenv
+reportlab
+python-multipart

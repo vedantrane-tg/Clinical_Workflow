@@ -3,3 +3,7 @@ uvicorn
 sqlalchemy
 google-genai
 python-dotenv
+sounddevice
+soundfile   
+numpy
+deepgram-sdk

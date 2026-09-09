@@ -13,7 +13,7 @@ from app.services.transcription import transcribe_audio_file
 from pathlib import Path
 from app.services.consultation_ai import generate_key_points
 from app.services.pdf_report import build_consultation_pdf
-
+from app.services.local_recorder import record_wav
 from fastapi.responses import FileResponse
 
 router = APIRouter(tags=["consultations"])
@@ -146,3 +146,50 @@ def download_consultation_pdf(consultation_id: str, db: Session = Depends(get_db
         media_type="application/pdf",
         filename=f"{consultation_id}.pdf",
     )
+
+@router.post("/consultations/record-local", response_model=ConsultationOut, status_code=201)
+def record_local_consultation(
+    patient_id: str | None = None,
+    duration_sec: int = 10,
+    db: Session = Depends(get_db),
+):
+    if patient_id:
+        patient = db.get(Patient, patient_id)
+        if not patient:
+            raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
+
+    consultation_id = next_consultation_id(db)
+    saved_name = f"{consultation_id}.wav"
+    saved_path = UPLOAD_DIR / saved_name
+
+    try:
+        record_wav(str(saved_path), duration_sec=duration_sec)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Mic recording failed: {e}")
+
+    # Transcribe and show in terminal
+    transcript = transcribe_audio_file(str(saved_path))
+    print("\n" + "=" * 50)
+    print("CONSULTATION TRANSCRIPT")
+    print("=" * 50)
+    if transcript:
+        print(transcript)
+    else:
+        print("[No transcript returned]")
+    print("=" * 50 + "\n")
+    
+    row = Consultation(
+        consultation_id=consultation_id,
+        patient_id=patient_id,
+        audio_filename=saved_name,
+        audio_path=str(saved_path),
+        status="transcribed" if transcript else "uploaded",
+        transcript=transcript,
+        key_points=None,
+        pdf_path=None,
+        created_at=utcnow(),
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row

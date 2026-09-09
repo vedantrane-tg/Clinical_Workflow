@@ -6,6 +6,7 @@ from app.models.audit import AuditEntry
 from app.models.workflow import WorkflowExecution
 from app.models.extracted_ehr import ExtractedEHR
 from app.models.clinical_summary import ClinicalSummary
+from app.models.consultation import Consultation
 
 
-__all__ = ["Patient", "Specialist", "ReferralRule", "Referral", "AuditEntry", "WorkflowExecution", "ExtractedEHR", "ClinicalSummary"]
+__all__ = ["Patient", "Specialist", "ReferralRule", "Referral", "AuditEntry", "WorkflowExecution", "ExtractedEHR", "ClinicalSummary", "Consultation"]

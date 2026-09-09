@@ -54,15 +54,6 @@ def create_referral(body: CreateReferralIn, db: Session = Depends(get_db)):
         agent=referral.agent_notes,
         result="Success",
     )
-
-    write_audit(
-        db,
-        user=body.actor.name,
-        role=body.actor.role,
-        action=f"{body.actor.role} updated referral {referral_id} ({', '.join(patch.keys()) or 'no fields'})",
-        patient_id=referral.patient_id,
-        result="Success",
-    )
     
     db.commit()
     db.refresh(referral)
@@ -87,6 +78,15 @@ def update_referral(referral_id: str, body: UpdateReferralIn, db: Session = Depe
     patch = body.model_dump(exclude={"actor"}, exclude_none=True)
     for key, value in patch.items():
         setattr(referral, key, value)
+
+    write_audit(
+        db,
+        user=body.actor.name,
+        role=body.actor.role,
+        action=f"{body.actor.role} updated referral {referral_id} ({', '.join(patch.keys()) or 'no fields'})",
+        patient_id=referral.patient_id,
+        result="Success",
+    )
 
     db.commit()
     db.refresh(referral)

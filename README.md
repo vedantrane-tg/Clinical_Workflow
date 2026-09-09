@@ -1,29 +1,56 @@
-# Welcome to your Lovable project
+# Clinical Referral Workflow
 
-This project was built with [Lovable](https://lovable.dev).
+A clinical referral workflow system with an AI-powered agent pipeline, built as a monorepo with a FastAPI backend and a React (TanStack Start) frontend.
 
-## Build with Lovable
+## Project Structure
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+```
+├── backend/        # FastAPI + SQLAlchemy service
+├── frontend/       # React + TanStack Start + Vite app
+├── AGENTS.md       # Lovable integration notes
+└── PROJECT_EXPLAINED.md
 ```
 
-## Built with
+## Getting Started
 
-- TanStack Start
-- TypeScript
-- React
-- Tailwind CSS
+### Prerequisites
+
+- **Python 3.11+** with `pip`
+- **Node.js 20+** with `npm` (or Bun)
+
+### 1. Backend
+
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+The API is now running at `http://localhost:8000`. Check `http://localhost:8000/docs` for Swagger UI.
+
+### 2. Frontend
+
+```bash
+cd frontend
+npm install      # or: bun install
+npm run dev      # or: bun run dev
+```
+
+The Vite dev server starts at `http://localhost:5173`. API calls to `/api/*` are automatically proxied to the backend on port 8000.
+
+### Environment Variables (Frontend)
+
+Copy `frontend/.env.example` → `frontend/.env` and customise:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VITE_API_BASE_URL` | `/api` (Vite proxy) | Override for production deployments |
+| `VITE_ENVIRONMENT_LABEL` | `Demo / Synthetic Data` | Label shown in the UI |
+
+### Convenience Scripts (from root)
+
+```bash
+npm run dev:backend    # Start FastAPI with hot-reload
+npm run dev:frontend   # Start Vite dev server
+npm run build:frontend # Production build
+```

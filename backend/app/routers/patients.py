@@ -1,22 +1,20 @@
+import json
+
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Patient
-from app.schemas import PatientOut, RunWorkflowIn, WorkflowOut
-from app.services.workflow import run_patient_workflow
-from app.models import Patient, ExtractedEHR
-from app.schemas import PatientOut, RunWorkflowIn, WorkflowOut, ExtractedEHROut
-
-from app.models import Patient, ExtractedEHR, ClinicalSummary
+from app.models import ClinicalSummary, ExtractedEHR, Patient
 from app.schemas import (
+    ClinicalSummaryOut,
+    ExtractedEHROut,
     PatientOut,
     RunWorkflowIn,
     WorkflowOut,
-    ExtractedEHROut,
-    ClinicalSummaryOut,
 )
+from app.services.workflow import run_patient_workflow, run_patient_workflow_streaming
 
 router = APIRouter(tags=["patients"])
 
@@ -45,9 +43,36 @@ def run_workflow(patient_id: str, body: RunWorkflowIn, db: Session = Depends(get
         actor_name=body.actor.name,
         actor_role=body.actor.role,
     )
-    db.commit()
-    db.refresh(workflow)
     return workflow
+
+
+@router.post("/patients/{patient_id}/workflow/stream")
+def stream_workflow(patient_id: str, body: RunWorkflowIn, db: Session = Depends(get_db)):
+    """SSE endpoint that streams workflow progress events step-by-step."""
+    patient = db.get(Patient, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
+
+    def event_generator():
+        gen = run_patient_workflow_streaming(
+            db,
+            patient=patient,
+            actor_name=body.actor.name,
+            actor_role=body.actor.role,
+        )
+        for snapshot in gen:
+            data = json.dumps(snapshot, default=str)
+            yield f"data: {data}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/patients/{patient_id}/ehr", response_model=ExtractedEHROut | None)

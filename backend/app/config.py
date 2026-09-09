@@ -7,8 +7,10 @@ load_dotenv()
 
 
 class Settings:
-    google_api_key: str | None = os.getenv("GOOGLE_GENERATIVE_AI_API_KEY") or None
-    gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+    google_api_key: str | None = (
+        os.getenv("GOOGLE_GENERATIVE_AI_API_KEY") or os.getenv("GEMINI_API_KEY") or None
+    )
+    gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
     @property
     def ai_enabled(self) -> bool:

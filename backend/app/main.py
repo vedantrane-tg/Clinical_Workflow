@@ -1,12 +1,12 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app import models  # noqa: F401
 from app.database import Base, SessionLocal, engine
-from app.routers import patients, specialists, rules, referrals, audit, workflows
-from app.seed import seed_patients, seed_specialists, seed_referral_rules, seed_audit
 from app.routers import patients, specialists, rules, referrals, audit, workflows, consultations
+from app.seed import seed_patients, seed_specialists, seed_referral_rules, seed_audit
 
 
 @asynccontextmanager
@@ -24,6 +24,16 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="Clinical Referral API", lifespan=lifespan)
+
+# CORS — allow the Vite dev server to reach the backend directly
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(patients.router)
 app.include_router(specialists.router)
 app.include_router(rules.router)

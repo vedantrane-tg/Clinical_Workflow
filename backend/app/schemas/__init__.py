@@ -7,6 +7,7 @@ from app.schemas.workflow import WorkflowOut
 from app.schemas.workflow import RunWorkflowIn
 from app.schemas.extracted_ehr import ExtractedEHROut
 from app.schemas.clinical_summary import ClinicalSummaryOut
+from app.schemas.consultation import ConsultationOut
 
 
-__all__ = ["PatientOut", "SpecialistOut", "ReferralRuleOut", "CreateReferralIn", "ReferralOut", "UpdateReferralIn", "AuditOut", "WorkflowOut", "RunWorkflowIn", "ExtractedEHROut", "ClinicalSummaryOut"]
+__all__ = ["PatientOut", "SpecialistOut", "ReferralRuleOut", "CreateReferralIn", "ReferralOut", "UpdateReferralIn", "AuditOut", "WorkflowOut", "RunWorkflowIn", "ExtractedEHROut", "ClinicalSummaryOut", "ConsultationOut"]

@@ -60,3 +60,10 @@ def next_issue_id(db: Session) -> str:
     for row in db.scalars(select(ClinicalSummary)).all():
         total += len(row.issues or [])
     return f"ISS-{1001 + total}"
+
+
+def next_consultation_id(db: Session) -> str:
+    from app.models import Consultation
+
+    count = len(db.scalars(select(Consultation)).all())
+    return f"CON-{1001 + count}"

@@ -1,4 +1,3 @@
-import time
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -9,10 +8,10 @@ from app.models import Patient, Payment
 from app.schemas import CreatePaymentIn, PaymentOut
 from app.services.ids import next_payment_id, utcnow, write_audit
 
-router = APIRouter(prefix="/payments", tags=["payments"])
+router = APIRouter(tags=["payments"])
 
 
-@router.post("", response_model=PaymentOut, status_code=201)
+@router.post("/payments", response_model=PaymentOut, status_code=201)
 def create_payment(body: CreatePaymentIn, db: Session = Depends(get_db)):
     patient = db.get(Patient, body.patient_id)
     if not patient:
@@ -25,7 +24,7 @@ def create_payment(body: CreatePaymentIn, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Invalid payment_type")
 
     # Mock gateway delay
-    time.sleep(0.5)
+    # time.sleep(0.5)
 
     now = utcnow()
     payment = Payment(
@@ -59,7 +58,7 @@ def create_payment(body: CreatePaymentIn, db: Session = Depends(get_db)):
     return payment
 
 
-@router.get("/{payment_id}", response_model=PaymentOut)
+@router.get("/payments/{payment_id}", response_model=PaymentOut)
 def get_payment(payment_id: str, db: Session = Depends(get_db)):
     payment = db.get(Payment, payment_id)
     if not payment:

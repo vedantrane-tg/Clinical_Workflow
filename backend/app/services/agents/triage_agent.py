@@ -148,29 +148,42 @@ def _gemini_triage(patient: Patient, chief_complaint: str, vitals: dict | None) 
         return None
 
 
+def _normalize_specialty(value: str) -> str:
+    text = (value or "").lower().strip()
+    for suffix in ("ologist", "ology", "ist", "ics", "y"):
+        if text.endswith(suffix) and len(text) > len(suffix) + 2:
+            text = text[: -len(suffix)]
+            break
+    return text
+
+
 def assign_doctor(db: Session, specialty: str) -> Specialist | None:
-    """Pick least-loaded available specialist matching specialty (fuzzy contains)."""
+    """Pick least-loaded available specialist matching specialty (fuzzy)."""
     specialists = list(db.scalars(select(Specialist)).all())
-    specialty_l = specialty.lower()
+    specialty_l = (specialty or "").lower().strip()
+    specialty_n = _normalize_specialty(specialty)
 
-    matches = [
-        s
-        for s in specialists
-        if specialty_l in s.specialty.lower()
-        or s.specialty.lower() in specialty_l
-        or specialty_l.replace("ist", "") in s.specialty.lower()
-    ]
-    if not matches:
-        # fallback: any available
-        matches = [s for s in specialists if s.availability != "Unavailable"]
+    matches = []
+    for s in specialists:
+        s_l = s.specialty.lower()
+        s_n = _normalize_specialty(s.specialty)
+        if (
+            specialty_l in s_l
+            or s_l in specialty_l
+            or specialty_n == s_n
+            or specialty_n in s_n
+            or s_n in specialty_n
+        ):
+            matches.append(s)
 
-    matches = [s for s in matches if s.availability != "Unavailable"]
-    if not matches:
+    # Prefer real specialty matches; only then fall back to any available doctor
+    pool = matches if matches else [s for s in specialists if s.availability != "Unavailable"]
+    pool = [s for s in pool if s.availability != "Unavailable"]
+    if not pool:
         return None
 
-    matches.sort(key=lambda s: s.active_referrals)
-    return matches[0]
-
+    pool.sort(key=lambda s: s.active_referrals)
+    return pool[0]
 
 def run_triage_agent(
     db: Session,

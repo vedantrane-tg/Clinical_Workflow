@@ -15,6 +15,10 @@ export const qk = {
   rules: ["referral-rules"] as const,
   audit: ["audit"] as const,
   agents: ["agents", "status"] as const,
+  queueAll: ["queue", "all"] as const,
+  queueDoctor: (id: string) => ["queue", "doctor", id] as const,
+  triageLatest: (id: string) => ["patients", id, "triage", "latest"] as const,
+  consultation: (id: string) => ["consultations", id] as const,
 };
 
 export const patientsQuery = () =>
@@ -53,6 +57,28 @@ export const auditQuery = () =>
 export const agentStatusQuery = () =>
   queryOptions({ queryKey: qk.agents, queryFn: () => clinicalApi.listAgentStatus() });
 
+export const queueAllQuery = () =>
+  queryOptions({
+    queryKey: qk.queueAll,
+    queryFn: () => clinicalApi.getAllQueues(),
+    refetchInterval: 15_000,
+  });
+
+export const doctorQueueQuery = (doctorId: string) =>
+  queryOptions({
+    queryKey: qk.queueDoctor(doctorId),
+    queryFn: () => clinicalApi.getDoctorQueue(doctorId),
+    enabled: Boolean(doctorId),
+    refetchInterval: 15_000,
+  });
+
+export const latestTriageQuery = (patientId: string) =>
+  queryOptions({
+    queryKey: qk.triageLatest(patientId),
+    queryFn: () => clinicalApi.getLatestTriage(patientId),
+    enabled: Boolean(patientId),
+  });
+
 export function usePatients() {
   return useQuery(patientsQuery());
 }
@@ -64,6 +90,7 @@ function invalidateAll(queryClient: ReturnType<typeof useQueryClient>, patientId
   queryClient.invalidateQueries({ queryKey: qk.audit });
   queryClient.invalidateQueries({ queryKey: qk.agents });
   queryClient.invalidateQueries({ queryKey: qk.specialists });
+  queryClient.invalidateQueries({ queryKey: qk.queueAll });
   if (patientId) {
     queryClient.invalidateQueries({ queryKey: qk.patient(patientId) });
     queryClient.invalidateQueries({ queryKey: qk.ehr(patientId) });
@@ -89,6 +116,51 @@ export function useCreateReferral() {
   return useMutation({
     mutationFn: (input: CreateReferralInput) => clinicalApi.createReferral(input),
     onSuccess: (referral) => invalidateAll(queryClient, referral.patient_id),
+  });
+}
+
+export function useCreatePatient() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: clinicalApi.createPatient.bind(clinicalApi),
+    onSuccess: (patient) => invalidateAll(queryClient, patient.patient_id),
+  });
+}
+
+export function useCheckinPatient(patientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      chief_complaint: string;
+      vitals?: Record<string, unknown> | null;
+      actor_name: string;
+      actor_role: string;
+    }) => clinicalApi.checkinPatient(patientId, input),
+    onSuccess: () => invalidateAll(queryClient, patientId),
+  });
+}
+
+export function useCreatePayment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: clinicalApi.createPayment.bind(clinicalApi),
+    onSuccess: (payment) => invalidateAll(queryClient, payment.patient_id),
+  });
+}
+
+export function useUploadAndScribe(patientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { blob: Blob; name: string }) => {
+      const uploaded = await clinicalApi.uploadConsultation(patientId, input.blob, input.name);
+      return clinicalApi.scribeConsultation(uploaded.consultation_id);
+    },
+    onSuccess: (consultation) => {
+      invalidateAll(queryClient, patientId);
+      if (consultation.consultation_id) {
+        queryClient.invalidateQueries({ queryKey: qk.consultation(consultation.consultation_id) });
+      }
+    },
   });
 }
 

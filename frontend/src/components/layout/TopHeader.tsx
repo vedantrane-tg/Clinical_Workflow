@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { Bell, Search } from "lucide-react";
+import { Bell, LogOut, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,14 +15,13 @@ import { Pill } from "@/components/common/StatusBadge";
 import { ENVIRONMENT_LABEL } from "@/api/config";
 import { usePatients } from "@/hooks/useClinicalQueries";
 import { useSession } from "@/hooks/useSession";
-import type { Role } from "@/types/clinical";
 
 export function TopHeader() {
   const [term, setTerm] = useState("");
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const { data: patients = [] } = usePatients();
-  const { user, setRole } = useSession();
+  const { user, logout } = useSession();
 
   const results = useMemo(() => {
     const q = term.trim().toLowerCase();
@@ -120,23 +119,23 @@ export function TopHeader() {
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="gap-2">
               <span className="flex size-6 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary">
-                {user.initials}
+                {user?.initials ?? "?"}
               </span>
-              <span className="hidden text-sm sm:inline">{user.name}</span>
-              <Pill tone="info" className="hidden md:inline-flex">
-                {user.role}
-              </Pill>
+              <span className="hidden text-sm sm:inline">{user?.name ?? "Signed out"}</span>
+              {user?.role ? (
+                <Pill tone="info" className="hidden md:inline-flex">
+                  {user.role}
+                </Pill>
+              ) : null}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Switch demo role</DropdownMenuLabel>
+            <DropdownMenuLabel>{user?.email ?? "Account"}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {(["Clinician", "Care Coordinator"] as Role[]).map((role) => (
-              <DropdownMenuItem key={role} onSelect={() => setRole(role)}>
-                {role}
-                {user.role === role ? <span className="ml-auto text-xs text-muted-foreground">Active</span> : null}
-              </DropdownMenuItem>
-            ))}
+            <DropdownMenuItem onSelect={() => logout()}>
+              <LogOut className="mr-2 size-4" />
+              Log out
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

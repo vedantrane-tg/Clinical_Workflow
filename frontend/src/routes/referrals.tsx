@@ -47,7 +47,10 @@ export const Route = createFileRoute("/referrals")({
 function ReferralsPage() {
   const { data: referrals, isLoading } = useQuery(referralsQuery());
   const { user, can } = useSession();
-  const update = useUpdateReferral({ name: user.name, role: user.role });
+  const update = useUpdateReferral({
+    name: user?.name ?? "Doctor",
+    role: user?.role ?? "Doctor",
+  });
   const [term, setTerm] = useState("");
   const [status, setStatus] = useState("all");
   const [priority, setPriority] = useState("all");

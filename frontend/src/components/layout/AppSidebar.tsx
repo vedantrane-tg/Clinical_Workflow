@@ -1,33 +1,53 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Activity,
-  ClipboardList,
+  ClipboardPlus,
   FileClock,
   LayoutDashboard,
   LogOut,
   Send,
-  Settings,
   Stethoscope,
   UserRound,
   Users,
 } from "lucide-react";
+import { useMemo } from "react";
 import { useSession } from "@/hooks/useSession";
 import { cn } from "@/lib/utils";
+import type { Role } from "@/types/clinical";
 
-const NAV = [
+type NavItem = {
+  label: string;
+  to: string;
+  icon: typeof LayoutDashboard;
+  exact?: boolean;
+};
+
+const RECEPTIONIST_NAV: NavItem[] = [
   { label: "Dashboard", to: "/", icon: LayoutDashboard, exact: true },
-  { label: "Patients", to: "/patients", icon: Users, exact: false },
-  { label: "Workflow Monitor", to: "/workflows", icon: Activity, exact: false },
-  { label: "Referrals", to: "/referrals", icon: Send, exact: false },
-  { label: "Specialists", to: "/specialists", icon: Stethoscope, exact: false },
-  { label: "Referral Rules", to: "/rules", icon: ClipboardList, exact: false },
-  { label: "Audit Trail", to: "/audit", icon: FileClock, exact: false },
-  { label: "Settings", to: "/settings", icon: Settings, exact: false },
-] as const;
+  { label: "Patients", to: "/patients", icon: Users },
+  { label: "New Patient", to: "/receptionist/new-patient", icon: ClipboardPlus },
+  { label: "Audit Trail", to: "/audit", icon: FileClock },
+];
+
+const DOCTOR_NAV: NavItem[] = [
+  { label: "Dashboard", to: "/", icon: LayoutDashboard, exact: true },
+  { label: "Patients", to: "/patients", icon: Users },
+  { label: "Workflow Monitor", to: "/workflows", icon: Activity },
+  { label: "Referrals", to: "/referrals", icon: Send },
+  { label: "Specialists", to: "/specialists", icon: Stethoscope },
+  { label: "Audit Trail", to: "/audit", icon: FileClock },
+];
+
+function navForRole(role: Role | undefined): NavItem[] {
+  if (role === "Receptionist") return RECEPTIONIST_NAV;
+  if (role === "Doctor") return DOCTOR_NAV;
+  return RECEPTIONIST_NAV;
+}
 
 export function AppSidebar() {
-  const { user, signOut } = useSession();
+  const { user, logout } = useSession();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const items = useMemo(() => navForRole(user?.role), [user?.role]);
 
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col bg-sidebar text-sidebar-foreground">
@@ -37,12 +57,14 @@ export function AppSidebar() {
         </span>
         <div className="leading-tight">
           <p className="text-sm font-semibold text-sidebar-accent-foreground">ClinicalFlow AI</p>
-          <p className="text-[11px] text-sidebar-foreground/70">Agentic Clinical Workflow</p>
+          <p className="text-[11px] text-sidebar-foreground/70">
+            {user?.role === "Doctor" ? "Doctor workspace" : "Reception desk"}
+          </p>
         </div>
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-        {NAV.map((item) => {
+        {items.map((item) => {
           const active = item.exact ? pathname === item.to : pathname.startsWith(item.to);
           return (
             <Link
@@ -65,15 +87,17 @@ export function AppSidebar() {
       <div className="border-t border-sidebar-border px-3 py-3">
         <div className="flex items-center gap-3 rounded-md px-2 py-2">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-xs font-semibold text-sidebar-accent-foreground">
-            {user.initials}
+            {user?.initials ?? "?"}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-sidebar-accent-foreground">{user.name}</p>
-            <p className="truncate text-xs text-sidebar-foreground/70">{user.role}</p>
+            <p className="truncate text-sm font-medium text-sidebar-accent-foreground">
+              {user?.name ?? "Signed out"}
+            </p>
+            <p className="truncate text-xs text-sidebar-foreground/70">{user?.role ?? "—"}</p>
           </div>
           <button
             type="button"
-            onClick={signOut}
+            onClick={logout}
             aria-label="Log out"
             className="rounded-md p-1.5 text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           >
@@ -82,7 +106,7 @@ export function AppSidebar() {
         </div>
         <p className="flex items-center gap-1.5 px-2 pt-1 text-[11px] text-sidebar-foreground/50">
           <UserRound className="size-3" aria-hidden />
-          Cognito-ready session (mock)
+          JWT session (backend auth)
         </p>
       </div>
     </aside>

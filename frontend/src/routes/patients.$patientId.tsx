@@ -59,7 +59,11 @@ function PatientDetailPage() {
   const { data: summary } = useQuery(summaryQuery(patientId));
   const { data: referrals } = useQuery(patientReferralsQuery(patientId));
 
-  const runWorkflow = useRunWorkflow(patientId, { name: user.name, role: user.role }, setLive);
+  const runWorkflow = useRunWorkflow(
+    patientId,
+    { name: user?.name ?? "Doctor", role: user?.role ?? "Doctor" },
+    setLive,
+  );
 
   useEffect(() => setLive(null), [patientId]);
 
@@ -132,7 +136,7 @@ function PatientDetailPage() {
 
       {!canRun ? (
         <p className="text-sm text-muted-foreground">
-          Running workflows requires the Clinician role. Care Coordinators can view results and manage referrals.
+          Running workflows requires the Doctor role. Receptionists can register patients and run triage.
         </p>
       ) : null}
 

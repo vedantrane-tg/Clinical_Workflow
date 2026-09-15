@@ -1,85 +1,151 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import { clinicalApi, getAuthToken, setAuthToken } from "@/api/clinicalApi";
 import type { Role } from "@/types/clinical";
 
 export interface SessionUser {
+  userId: string;
   name: string;
   email: string;
   role: Role;
+  specialty: string | null;
   initials: string;
 }
 
-const USERS: Record<Role, SessionUser> = {
-  Clinician: {
-    name: "Dr. Neha Kapoor",
-    email: "n.kapoor@clinicalflow.demo",
-    role: "Clinician",
-    initials: "NK",
-  },
-  "Care Coordinator": {
-    name: "Sameer Joshi",
-    email: "s.joshi@clinicalflow.demo",
-    role: "Care Coordinator",
-    initials: "SJ",
-  },
-};
-
-/** Permission matrix — mirrors the Cognito group claims planned for production. */
 export const PERMISSIONS = {
-  Clinician: {
+  Receptionist: {
+    registerPatient: true,
+    runTriage: true,
+    processPayment: true,
+    runWorkflow: false,
+    recordConsultation: false,
+    signEncounter: false,
+    viewEhr: true,
+    createReferral: false,
+    overrideReferral: false,
+    editRules: false,
+  },
+  Doctor: {
+    registerPatient: false,
+    runTriage: false,
+    processPayment: false,
     runWorkflow: true,
+    recordConsultation: true,
+    signEncounter: true,
     viewEhr: true,
     createReferral: true,
     overrideReferral: false,
     editRules: true,
   },
-  "Care Coordinator": {
-    runWorkflow: false,
-    viewEhr: true,
-    createReferral: true,
-    overrideReferral: true,
-    editRules: false,
-  },
 } as const satisfies Record<Role, Record<string, boolean>>;
 
-export type Permission = keyof (typeof PERMISSIONS)["Clinician"];
+export type Permission =
+  | keyof (typeof PERMISSIONS)["Receptionist"]
+  | keyof (typeof PERMISSIONS)["Doctor"];
 
 interface SessionValue {
-  user: SessionUser;
+  user: SessionUser | null;
   signedIn: boolean;
-  setRole: (role: Role) => void;
-  signOut: () => void;
-  signIn: () => void;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  signup: (input: {
+    full_name: string;
+    email: string;
+    password: string;
+    role: Role;
+    specialty?: string | null;
+  }) => Promise<void>;
+  logout: () => void;
   can: (permission: Permission) => boolean;
 }
 
 const SessionContext = createContext<SessionValue | null>(null);
 
-const STORAGE_KEY = "clinicalflow.session.role";
+function toSessionUser(u: {
+  user_id: string;
+  full_name: string;
+  email: string;
+  role: Role;
+  specialty: string | null;
+}): SessionUser {
+  const parts = u.full_name.trim().split(/\s+/);
+  const initials = ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "U";
+  return {
+    userId: u.user_id,
+    name: u.full_name,
+    email: u.email,
+    role: u.role,
+    specialty: u.specialty,
+    initials,
+  };
+}
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [role, setRoleState] = useState<Role>("Clinician");
-  const [signedIn, setSignedIn] = useState(true);
+  const [user, setUser] = useState<SessionUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === "Clinician" || stored === "Care Coordinator") setRoleState(stored);
+    const token = getAuthToken();
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    clinicalApi
+      .me()
+      .then((u) => setUser(toSessionUser(u)))
+      .catch(() => {
+        setAuthToken(null);
+        setUser(null);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
-  const setRole = useCallback((next: Role) => {
-    setRoleState(next);
-    window.localStorage.setItem(STORAGE_KEY, next);
+  const login = useCallback(async (email: string, password: string) => {
+    const res = await clinicalApi.login(email, password);
+    setAuthToken(res.access_token);
+    setUser(toSessionUser(res.user));
+  }, []);
+
+  const signup = useCallback(
+    async (input: {
+      full_name: string;
+      email: string;
+      password: string;
+      role: Role;
+      specialty?: string | null;
+    }) => {
+      await clinicalApi.signup(input);
+    },
+    [],
+  );
+
+  const logout = useCallback(() => {
+    setAuthToken(null);
+    setUser(null);
   }, []);
 
   const value = useMemo<SessionValue>(
     () => ({
-      user: USERS[role],
-      signedIn,
-      setRole,
-      signOut: () => setSignedIn(false),
-      signIn: () => setSignedIn(true),
-      can: (permission: Permission) => PERMISSIONS[role][permission],
+      user,
+      signedIn: Boolean(user),
+      loading,
+      login,
+      signup,
+      logout,
+      can: (permission) => {
+        if (!user) return false;
+        const matrix = PERMISSIONS[user.role] as Record<string, boolean>;
+        return Boolean(matrix[permission]);
+      },
     }),
-    [role, signedIn, setRole],
+    [user, loading, login, signup, logout],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

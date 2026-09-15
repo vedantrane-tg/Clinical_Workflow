@@ -104,3 +104,32 @@ export function LabStatusBadge({ status }: { status: "NORMAL" | "HIGH" | "LOW" |
     status === "NORMAL" ? "success" : status === "CRITICAL" ? "critical" : status === "LOW" ? "warning" : "danger";
   return <Pill tone={tone}>{status}</Pill>;
 }
+
+/** Green = routine/low/completed · Amber = moderate/waiting · Red = urgent/emergency/failed */
+export function AcuityBadge({ level }: { level: string }) {
+  const v = level.toLowerCase();
+  const tone: Tone =
+    v.includes("emergency") || v.includes("critical")
+      ? "danger"
+      : v.includes("urgent") || v.includes("high") || v.includes("moderate")
+        ? "warning"
+        : v.includes("routine") || v.includes("low")
+          ? "success"
+          : "neutral";
+  return <Pill tone={tone}>{level}</Pill>;
+}
+
+export function QueueStatusBadge({ status }: { status: string }) {
+  const v = status.toLowerCase();
+  const tone: Tone =
+    v.includes("completed") || v.includes("done")
+      ? "success"
+      : v.includes("waiting") || v.includes("pending")
+        ? "warning"
+        : v.includes("consult") || v.includes("progress")
+          ? "info"
+          : v.includes("fail") || v.includes("cancel")
+            ? "danger"
+            : "neutral";
+  return <Pill tone={tone}>{status}</Pill>;
+}

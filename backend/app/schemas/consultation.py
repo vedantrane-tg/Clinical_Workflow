@@ -14,3 +14,5 @@ class ConsultationOut(BaseModel):
     key_points: list | None = None
     pdf_path: str | None = None
     created_at: datetime
+    soap_note: dict | None = None
+    encounter_status: str = "Open"

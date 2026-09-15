@@ -8,6 +8,32 @@ from app.schemas.workflow import RunWorkflowIn
 from app.schemas.extracted_ehr import ExtractedEHROut
 from app.schemas.clinical_summary import ClinicalSummaryOut
 from app.schemas.consultation import ConsultationOut
+from app.schemas.patient import PatientOut, CreatePatientIn
+from app.schemas.triage import TriageResultOut, CheckinRequest  
+from app.schemas.payment import CreatePaymentIn, PaymentOut
+from app.schemas.queue import QueuePatientOut, DoctorQueueOut
+from app.schemas.encounter import EncounterOut, CdsRequest, FinalizeEncounterIn
 
-
-__all__ = ["PatientOut", "SpecialistOut", "ReferralRuleOut", "CreateReferralIn", "ReferralOut", "UpdateReferralIn", "AuditOut", "WorkflowOut", "RunWorkflowIn", "ExtractedEHROut", "ClinicalSummaryOut", "ConsultationOut"]
+__all__ = ["PatientOut", 
+            "SpecialistOut",
+            "ReferralRuleOut", 
+            "CreateReferralIn", 
+            "ReferralOut", 
+            "UpdateReferralIn", 
+            "AuditOut", 
+            "WorkflowOut", 
+            "RunWorkflowIn", 
+            "ExtractedEHROut", 
+            "ClinicalSummaryOut", 
+            "ConsultationOut", 
+            "PatientOut", 
+            "CreatePatientIn", 
+            "TriageResultOut", 
+            "CheckinRequest", 
+            "CreatePaymentIn", 
+            "PaymentOut",
+            "QueuePatientOut",
+            "DoctorQueueOut",
+            "EncounterOut",
+            "CdsRequest",
+            "FinalizeEncounterIn"]

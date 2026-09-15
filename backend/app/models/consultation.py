@@ -20,3 +20,5 @@ class Consultation(Base):
     key_points: Mapped[list | None] = mapped_column(JSON, nullable=True)
     pdf_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    soap_note: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    encounter_status: Mapped[str] = mapped_column(String(32), nullable=False, default="Open")

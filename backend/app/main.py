@@ -5,15 +5,16 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import models  # noqa: F401
 from app.database import Base, SessionLocal, engine
-from app.routers import patients, specialists, rules, referrals, audit, workflows, consultations
-from app.seed import seed_patients, seed_specialists, seed_referral_rules, seed_audit
 
+from app.routers import patients, specialists, rules, referrals, audit, workflows, consultations, auth, triage, queue, payments
+from app.seed import seed_patients, seed_specialists, seed_referral_rules, seed_audit, seed_users
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
+        seed_users(db)
         seed_patients(db)
         seed_specialists(db)
         seed_referral_rules(db)
@@ -41,6 +42,10 @@ app.include_router(referrals.router)
 app.include_router(audit.router)
 app.include_router(workflows.router)
 app.include_router(consultations.router)
+app.include_router(auth.router)
+app.include_router(triage.router)
+app.include_router(queue.router)
+app.include_router(payments.router)
 
 @app.get("/health")
 def health():

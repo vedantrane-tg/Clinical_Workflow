@@ -12,20 +12,12 @@ class Settings:
     )
     gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
-    @property
-    def ai_enabled(self) -> bool:
-        return bool(self.google_api_key)
-
-
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()
-
-class Settings:
-    google_api_key: str | None = os.getenv("GOOGLE_GENERATIVE_AI_API_KEY") or None
-    gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
     deepgram_api_key: str | None = os.getenv("DEEPGRAM_API_KEY") or None
     deepgram_model: str = os.getenv("DEEPGRAM_MODEL", "nova-2")
+
+    jwt_secret: str = os.getenv("JWT_SECRET", "change-me-to-a-random-64-char-string")
+    jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
+    jwt_expiry_minutes: int = int(os.getenv("JWT_EXPIRY_MINUTES", "480"))
 
     @property
     def ai_enabled(self) -> bool:
@@ -34,3 +26,8 @@ class Settings:
     @property
     def deepgram_enabled(self) -> bool:
         return bool(self.deepgram_api_key)
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

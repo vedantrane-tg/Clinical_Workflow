@@ -7,6 +7,9 @@ from app.models import ReferralRule
 from app.models import AuditEntry  # plus your existing imports
 from app.services.ids import utcnow
 
+from app.models import User
+from app.auth.security import hash_password
+
 def seed_patients(db: Session) -> None:
     # Skip if data already exists
     if db.scalar(select(Patient).limit(1)) is not None:
@@ -176,4 +179,34 @@ def seed_audit(db: Session) -> None:
             result="Info",
         )
     )
+    db.commit()
+
+
+def seed_users(db: Session) -> None:
+    if db.scalar(select(User).limit(1)) is not None:
+        return
+
+    users = [
+        User(
+            user_id="USR-0001",
+            full_name="Ananya Deshmukh",
+            email="ananya@clinicalflow.demo",
+            hashed_password=hash_password("receptionist123"),
+            role="Receptionist",
+            specialty=None,
+            is_active=True,
+            created_at=utcnow(),
+        ),
+        User(
+            user_id="USR-0002",
+            full_name="Dr. Neha Kapoor",
+            email="neha@clinicalflow.demo",
+            hashed_password=hash_password("doctor123"),
+            role="Doctor",
+            specialty="General Medicine",
+            is_active=True,
+            created_at=utcnow(),
+        ),
+    ]
+    db.add_all(users)
     db.commit()

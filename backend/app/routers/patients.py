@@ -7,17 +7,25 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import ClinicalSummary, ExtractedEHR, Patient
+
+from datetime import date
 from app.schemas import (
     ClinicalSummaryOut,
+    CreatePatientIn,
     ExtractedEHROut,
     PatientOut,
     RunWorkflowIn,
     WorkflowOut,
 )
+
+from app.services.ids import next_patient_id, write_audit, utcnow
 from app.services.workflow import run_patient_workflow, run_patient_workflow_streaming
 
 router = APIRouter(tags=["patients"])
-
+def _age_from_dob(date_of_birth: str) -> int:
+    dob = date.fromisoformat(date_of_birth)
+    today = date.today()
+    return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
 
 @router.get("/patients", response_model=list[PatientOut])
 def list_patients(db: Session = Depends(get_db)):
@@ -31,6 +39,52 @@ def get_patient(patient_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
     return patient
 
+@router.post("/patients", response_model=PatientOut, status_code=201)
+def create_patient(body: CreatePatientIn, db: Session = Depends(get_db)):
+    if body.gender not in ("Male", "Female", "Other"):
+        raise HTTPException(status_code=400, detail="gender must be Male, Female, or Other")
+
+    try:
+        age = _age_from_dob(body.date_of_birth)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="date_of_birth must be YYYY-MM-DD")
+
+    patient = Patient(
+        patient_id=next_patient_id(db),
+        name=body.name.strip(),
+        date_of_birth=body.date_of_birth,
+        gender=body.gender,
+        age=age,
+        risk="Low",
+        conditions=body.conditions or [],
+        medications=body.medications or [],
+        encounters=[],
+        labs=[],
+        workflow_status="Not Started",
+        last_encounter="",
+        issues_count=0,
+        referrals_count=0,
+        chief_complaint=None,
+        assigned_doctor_id=None,
+        queue_status="Not Checked In",
+        queue_position=None,
+        checked_in_at=None,
+        contact_phone=body.contact_phone,
+        contact_email=body.contact_email,
+        insurance_id=body.insurance_id,
+        address=body.address,
+    )
+    db.add(patient)
+    write_audit(
+        db,
+        user="Receptionist",
+        role="Receptionist",
+        action=f"Receptionist registered new patient {patient.patient_id}",
+        patient_id=patient.patient_id,
+    )
+    db.commit()
+    db.refresh(patient)
+    return patient
 
 @router.post("/patients/{patient_id}/workflow/run", response_model=WorkflowOut)
 def run_workflow(patient_id: str, body: RunWorkflowIn, db: Session = Depends(get_db)):

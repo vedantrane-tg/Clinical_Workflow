@@ -1,7 +1,7 @@
-from sqlalchemy import Integer, String
+from datetime import datetime
+from sqlalchemy import DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
-
 from app.database import Base
 
 
@@ -25,3 +25,14 @@ class Patient(Base):
     last_encounter: Mapped[str] = mapped_column(String(32), nullable=False)
     issues_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     referrals_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    # NEW — intake / queue fields
+    chief_complaint: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    assigned_doctor_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    queue_status: Mapped[str] = mapped_column(String(32), nullable=False, default="Not Checked In")
+    queue_position: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    checked_in_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    contact_phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    insurance_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    address: Mapped[str | None] = mapped_column(String(512), nullable=True)

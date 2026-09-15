@@ -7,6 +7,10 @@ from app.models.workflow import WorkflowExecution
 from app.models.extracted_ehr import ExtractedEHR
 from app.models.clinical_summary import ClinicalSummary
 from app.models.consultation import Consultation
+from app.models.user import User
+from app.models.triage_result import TriageResult
+from app.models.payment import Payment
+from app.models.encounter import Encounter
 
 
-__all__ = ["Patient", "Specialist", "ReferralRule", "Referral", "AuditEntry", "WorkflowExecution", "ExtractedEHR", "ClinicalSummary", "Consultation"]
+__all__ = ["Patient", "Specialist", "ReferralRule", "Referral", "AuditEntry", "WorkflowExecution", "ExtractedEHR", "ClinicalSummary", "Consultation", "User", "TriageResult", "Payment", "Encounter"]

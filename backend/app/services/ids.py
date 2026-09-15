@@ -67,3 +67,36 @@ def next_consultation_id(db: Session) -> str:
 
     count = len(db.scalars(select(Consultation)).all())
     return f"CON-{1001 + count}"
+
+def next_user_id(db: Session) -> str:
+    from app.models import User
+
+    count = len(db.scalars(select(User)).all())
+    return f"USR-{str(count + 1).zfill(4)}"
+
+def next_triage_id(db: Session) -> str:
+    from app.models import TriageResult
+
+    count = len(db.scalars(select(TriageResult)).all())
+    return f"TRI-{str(count + 1).zfill(4)}"
+
+
+def next_encounter_id(db: Session) -> str:
+    from app.models import Encounter
+
+    count = len(db.scalars(select(Encounter)).all())
+    return f"ENC-{str(count + 1).zfill(4)}"
+
+
+def next_payment_id(db: Session) -> str:
+    from app.models import Payment
+
+    count = len(db.scalars(select(Payment)).all())
+    return f"PAY-{str(count + 1).zfill(4)}"
+
+
+def next_patient_id(db: Session) -> str:
+    from app.models import Patient
+
+    count = len(db.scalars(select(Patient)).all())
+    return f"PAT-{1001 + count}"

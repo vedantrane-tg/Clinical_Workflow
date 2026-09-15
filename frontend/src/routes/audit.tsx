@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { FileClock } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState } from "@/components/common/EmptyState";
+import { QueryError } from "@/components/common/QueryError";
 import { Pill } from "@/components/common/StatusBadge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -32,7 +33,7 @@ export const Route = createFileRoute("/audit")({
 });
 
 function AuditPage() {
-  const { data: entries, isLoading } = useQuery(auditQuery());
+  const { data: entries, isLoading, isError, refetch, isFetching } = useQuery(auditQuery());
   const [term, setTerm] = useState("");
   const [result, setResult] = useState("all");
 
@@ -43,7 +44,8 @@ function AuditPage() {
         !q ||
         e.action.toLowerCase().includes(q) ||
         e.user.toLowerCase().includes(q) ||
-        (e.patient_id ?? "").toLowerCase().includes(q);
+        (e.patient_id ?? "").toLowerCase().includes(q) ||
+        (e.agent ?? "").toLowerCase().includes(q);
       return matches && (result === "all" || e.result === result);
     });
   }, [entries, term, result]);
@@ -52,8 +54,17 @@ function AuditPage() {
     <>
       <PageHeader
         title="Audit Trail"
-        description="Every agent execution and user action is recorded for traceability and compliance review."
+        description="Registration, triage, payment, scribe, CDS, and sign-off actions are logged for compliance review."
       />
+
+      {isError ? (
+        <QueryError
+          message="Couldn’t load the audit trail. Confirm the API is reachable."
+          onRetry={() => {
+            void refetch();
+          }}
+        />
+      ) : null}
 
       <Card className="shadow-card">
         <CardContent className="space-y-4 pt-6">
@@ -61,7 +72,7 @@ function AuditPage() {
             <Input
               value={term}
               onChange={(e) => setTerm(e.target.value)}
-              placeholder="Search action, user or patient ID…"
+              placeholder="Search action, user, agent or patient ID…"
               className="max-w-sm"
               aria-label="Search audit trail"
             />
@@ -78,7 +89,7 @@ function AuditPage() {
             </Select>
           </div>
 
-          {isLoading ? (
+          {isLoading || (isFetching && !entries) ? (
             <div className="space-y-2">
               {[0, 1, 2, 3, 4].map((i) => (
                 <Skeleton key={i} className="h-11 w-full" />
@@ -88,7 +99,7 @@ function AuditPage() {
             <EmptyState
               icon={FileClock}
               title="No audit entries yet"
-              description="Run a clinical workflow or create a referral and every action will appear here with a timestamp."
+              description="Run the intake → consult → finalize loop and every step will appear here with a timestamp."
             />
           ) : (
             <div className="overflow-x-auto">

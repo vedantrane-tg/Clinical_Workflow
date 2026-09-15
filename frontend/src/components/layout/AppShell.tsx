@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Navigate, useRouterState } from "@tanstack/react-router";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
@@ -6,27 +7,25 @@ import { AppSidebar } from "./AppSidebar";
 import { TopHeader } from "./TopHeader";
 import { useSession } from "@/hooks/useSession";
 
-function SignedOut() {
-  const { signIn, user } = useSession();
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm rounded-lg border border-border bg-surface p-6 text-center shadow-card">
-        <h1 className="text-lg font-semibold text-foreground">ClinicalFlow AI</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Session ended. Authentication is handled by Amazon Cognito in production; this demo uses a mock
-          session.
-        </p>
-        <Button className="mt-5 w-full" onClick={signIn}>
-          Sign back in as {user.name}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 export function AppShell({ children }: { children: ReactNode }) {
-  const { signedIn } = useSession();
-  if (!signedIn) return <SignedOut />;
+  const { signedIn, loading } = useSession();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isAuthPage = pathname === "/login" || pathname === "/signup";
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
+        Restoring session…
+      </div>
+    );
+  }
+
+  if (isAuthPage) {
+    if (signedIn) return <Navigate to="/" />;
+    return <>{children}</>;
+  }
+
+  if (!signedIn) return <Navigate to="/login" />;
 
   return (
     <div className="flex min-h-screen w-full bg-background">
@@ -50,7 +49,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
         <TopHeader />
         <main className="flex-1 px-4 py-6 lg:px-8">
-          <div className="mx-auto w-full max-w-[1400px] space-y-6">{children}</div>
+          <div key={pathname} className="page-enter mx-auto w-full max-w-[1400px] space-y-6">
+            {children}
+          </div>
         </main>
       </div>
     </div>

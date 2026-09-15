@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Users } from "lucide-react";
+import { Plus, Users } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState } from "@/components/common/EmptyState";
+import { QueryError } from "@/components/common/QueryError";
 import { SeverityBadge, WorkflowStatusBadge } from "@/components/common/StatusBadge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePatients } from "@/hooks/useClinicalQueries";
+import { useSession } from "@/hooks/useSession";
 
 export const Route = createFileRoute("/patients/")({
   head: () => ({
@@ -34,7 +36,8 @@ export const Route = createFileRoute("/patients/")({
 const PAGE_SIZE = 10;
 
 function PatientsPage() {
-  const { data: patients, isLoading } = usePatients();
+  const { data: patients, isLoading, isError, refetch } = usePatients();
+  const { can } = useSession();
   const [term, setTerm] = useState("");
   const [risk, setRisk] = useState("all");
   const [status, setStatus] = useState("all");
@@ -56,11 +59,35 @@ function PatientsPage() {
   const current = Math.min(page, pageCount - 1);
   const visible = rows.slice(current * PAGE_SIZE, current * PAGE_SIZE + PAGE_SIZE);
 
+  if (isError) {
+    return (
+      <>
+        <PageHeader title="Patients" description="Patient roster." />
+        <QueryError
+          message="Couldn’t load patients."
+          onRetry={() => {
+            void refetch();
+          }}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       <PageHeader
         title="Patients"
-        description="Synthetic patient roster. Open a record to run the multi-agent clinical workflow."
+        description="Patient roster. Reception can register walk-ins; doctors open records for consults."
+        actions={
+          can("registerPatient") ? (
+            <Button asChild>
+              <Link to="/receptionist/new-patient">
+                <Plus className="mr-1.5 size-4" />
+                New patient
+              </Link>
+            </Button>
+          ) : null
+        }
       />
 
       <Card className="shadow-card">

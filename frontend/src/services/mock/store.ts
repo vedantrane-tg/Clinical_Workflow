@@ -37,7 +37,7 @@ function seed(): ClinicalStore {
       {
         audit_id: "AUD-0001",
         user: "system",
-        role: "Clinician",
+        role: "Doctor",
         action: "Environment initialised with synthetic FHIR dataset",
         patient_id: null,
         agent: null,

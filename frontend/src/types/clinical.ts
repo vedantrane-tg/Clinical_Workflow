@@ -30,7 +30,8 @@ export type SpecialistType =
   | "Pulmonologist"
   | "Other";
 
-export type Role = "Clinician" | "Care Coordinator";
+// export type Role = "Clinician" | "Care Coordinator";
+export type Role = "Receptionist" | "Doctor";
 
 export interface Condition {
   name: string;
@@ -87,6 +88,15 @@ export interface Patient {
   last_encounter: string;
   issues_count: number;
   referrals_count: number;
+  chief_complaint?: string | null;
+  assigned_doctor_id?: string | null;
+  queue_status?: string;
+  queue_position?: number | null;
+  checked_in_at?: string | null;
+  contact_phone?: string | null;
+  contact_email?: string | null;
+  insurance_id?: string | null;
+  address?: string | null;
 }
 
 export interface ExtractedEHR {
@@ -196,12 +206,111 @@ export interface ReferralRule {
 export interface AuditEntry {
   audit_id: string;
   user: string;
-  role: Role;
+  role: string;
   action: string;
   patient_id: string | null;
   agent: string | null;
   timestamp: string;
-  result: "Success" | "Failed" | "Info";
+  result: "Success" | "Failed" | "Info" | string;
+}
+
+export interface TriageResult {
+  triage_id: string;
+  patient_id: string;
+  chief_complaint: string;
+  recommended_specialty: string;
+  recommended_doctor_id: string | null;
+  recommended_doctor_name: string | null;
+  acuity_level: string;
+  pre_visit_brief: string;
+  brief_sections: { heading: string; body: string }[];
+  confidence_score: number;
+  model: string;
+  created_at: string;
+}
+
+export interface Payment {
+  payment_id: string;
+  patient_id: string;
+  encounter_id: string | null;
+  amount: number;
+  currency: string;
+  payment_type: string;
+  payment_method: string;
+  status: string;
+  transaction_ref: string | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export interface QueuePatient {
+  patient_id: string;
+  name: string;
+  age: number;
+  gender: string;
+  chief_complaint: string | null;
+  assigned_doctor_id: string | null;
+  queue_status: string;
+  queue_position: number | null;
+  checked_in_at: string | null;
+  risk: string;
+  acuity_hint: string | null;
+}
+
+export interface DoctorQueue {
+  doctor_id: string;
+  doctor_name: string;
+  specialty: string;
+  patients: QueuePatient[];
+}
+
+export interface SoapNote {
+  subjective?: string;
+  objective?: string;
+  assessment?: string;
+  plan?: string;
+  key_findings?: string[];
+  mentioned_diagnoses?: string[];
+  mentioned_medications?: string[];
+  model?: string;
+}
+
+export interface Consultation {
+  consultation_id: string;
+  patient_id: string | null;
+  audio_filename: string;
+  status: string;
+  transcript: string | null;
+  key_points: string[] | null;
+  pdf_path: string | null;
+  created_at: string;
+  soap_note: SoapNote | null;
+  encounter_status: string;
+}
+
+export interface Encounter {
+  encounter_id: string;
+  patient_id: string;
+  consultation_id: string | null;
+  triage_id: string | null;
+  doctor_id: string;
+  doctor_name: string;
+  soap_subjective: string | null;
+  soap_objective: string | null;
+  soap_assessment: string | null;
+  soap_plan: string | null;
+  suggested_labs: Record<string, unknown>[];
+  suggested_medications: Record<string, unknown>[];
+  suggested_icd_codes: Record<string, unknown>[];
+  suggested_referrals: Record<string, unknown>[];
+  approved_labs: Record<string, unknown>[] | null;
+  approved_medications: Record<string, unknown>[] | null;
+  approved_icd_codes: Record<string, unknown>[] | null;
+  approved_referrals: Record<string, unknown>[] | null;
+  status: string;
+  finalized_at: string | null;
+  finalized_by: string | null;
+  created_at: string;
 }
 
 export interface AgentServiceStatus {

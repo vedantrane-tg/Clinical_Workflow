@@ -1,7 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { Activity, AlertTriangle, Send, Users } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  ClipboardPlus,
+  Clock3,
+  Send,
+  Stethoscope,
+  Users,
+  UserRoundCheck,
+} from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -18,12 +27,26 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { KpiCard } from "@/components/common/KpiCard";
 import { Disclaimer } from "@/components/common/Disclaimer";
 import { EmptyState } from "@/components/common/EmptyState";
-import { ReferralStatusBadge, SeverityBadge, WorkflowStatusBadge } from "@/components/common/StatusBadge";
+import { QueryError } from "@/components/common/QueryError";
+import {
+  AcuityBadge,
+  Pill,
+  QueueStatusBadge,
+  ReferralStatusBadge,
+  SeverityBadge,
+  WorkflowStatusBadge,
+} from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { referralsQuery, usePatients, workflowsQuery } from "@/hooks/useClinicalQueries";
+import {
+  queueAllQuery,
+  referralsQuery,
+  usePatients,
+  workflowsQuery,
+} from "@/hooks/useClinicalQueries";
+import { useSession } from "@/hooks/useSession";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -32,12 +55,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Operational dashboard for the agentic clinical workflow: patient volume, flagged issues, referrals and workflow analytics.",
-      },
-      { property: "og:title", content: "Clinical Dashboard — ClinicalFlow AI" },
-      {
-        property: "og:description",
-        content: "KPIs and analytics for EHR extraction, AI summarisation and referral orchestration.",
+          "Operational dashboard for intake queues and doctor consults in the agentic clinical workflow.",
       },
     ],
   }),
@@ -46,7 +64,299 @@ export const Route = createFileRoute("/")({
 
 const RISK_COLORS = ["var(--destructive)", "var(--warning)", "var(--success)"];
 
+function waitMinutes(checkedInAt: string | null): string {
+  if (!checkedInAt) return "—";
+  const ms = Date.now() - new Date(checkedInAt).getTime();
+  if (Number.isNaN(ms) || ms < 0) return "—";
+  return `${Math.max(0, Math.round(ms / 60_000))}m`;
+}
+
 function Dashboard() {
+  const { user } = useSession();
+  if (user?.role === "Receptionist") return <ReceptionistDashboard />;
+  if (user?.role === "Doctor") return <DoctorDashboard />;
+  return <LegacyOpsDashboard />;
+}
+
+function ReceptionistDashboard() {
+  const { data: patients, isLoading, isError, refetch } = usePatients();
+  const {
+    data: queues,
+    isLoading: queuesLoading,
+    isError: queuesError,
+    refetch: refetchQueues,
+  } = useQuery(queueAllQuery());
+
+  const stats = useMemo(() => {
+    const list = patients ?? [];
+    const waiting = list.filter((p) => p.queue_status === "Waiting").length;
+    const inConsult = list.filter((p) => p.queue_status === "In Consultation").length;
+    const completed = list.filter((p) => p.queue_status === "Completed").length;
+    const checkedIn = list.filter((p) => Boolean(p.checked_in_at)).length;
+    return {
+      registered: list.length,
+      checkedIn,
+      waiting,
+      inConsult,
+      completed,
+    };
+  }, [patients]);
+
+  const waitingRows = useMemo(() => {
+    return (queues ?? [])
+      .flatMap((q) =>
+        q.patients
+          .filter((p) => p.queue_status === "Waiting")
+          .map((p) => ({ ...p, doctor_name: q.doctor_name, specialty: q.specialty })),
+      )
+      .sort((a, b) => (a.queue_position ?? 999) - (b.queue_position ?? 999));
+  }, [queues]);
+
+  if (isLoading || queuesLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-72" />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-24 w-full" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (isError || queuesError) {
+    return (
+      <QueryError
+        message="Couldn’t load the intake dashboard."
+        onRetry={() => {
+          void refetch();
+          void refetchQueues();
+        }}
+      />
+    );
+  }
+
+  return (
+    <>
+      <PageHeader
+        title="Intake overview"
+        description="Register patients, run triage, collect payment, and track the waiting queue."
+        actions={
+          <Button asChild>
+            <Link to="/receptionist/new-patient">
+              <ClipboardPlus className="mr-1.5 size-4" />
+              New patient
+            </Link>
+          </Button>
+        }
+      />
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label="Registered patients" value={stats.registered} icon={Users} />
+        <KpiCard label="Checked in today" value={stats.checkedIn} icon={UserRoundCheck} tone="success" />
+        <KpiCard label="Waiting" value={stats.waiting} icon={Clock3} tone="warning" />
+        <KpiCard label="In consultation" value={stats.inConsult} icon={Stethoscope} hint={`${stats.completed} completed`} />
+      </div>
+
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle className="text-base">Live waiting queue</CardTitle>
+          <CardDescription>Patients waiting after triage and payment routing.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {waitingRows.length === 0 ? (
+            <EmptyState
+              icon={Clock3}
+              title="No one waiting"
+              description="Register a patient, run triage, then process payment to add them to a doctor queue."
+              action={
+                <Button asChild>
+                  <Link to="/receptionist/new-patient">Register patient</Link>
+                </Button>
+              }
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>#</TableHead>
+                  <TableHead>Patient</TableHead>
+                  <TableHead>Complaint</TableHead>
+                  <TableHead>Doctor</TableHead>
+                  <TableHead>Wait</TableHead>
+                  <TableHead>Acuity</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {waitingRows.map((row) => (
+                  <TableRow key={row.patient_id}>
+                    <TableCell className="tabular-nums">{row.queue_position ?? "—"}</TableCell>
+                    <TableCell className="font-medium">
+                      {row.name}
+                      <div className="font-mono text-xs text-muted-foreground">{row.patient_id}</div>
+                    </TableCell>
+                    <TableCell className="max-w-[220px] truncate text-muted-foreground">
+                      {row.chief_complaint ?? "—"}
+                    </TableCell>
+                    <TableCell>
+                      <div>{row.doctor_name}</div>
+                      <div className="text-xs text-muted-foreground">{row.specialty}</div>
+                    </TableCell>
+                    <TableCell>{waitMinutes(row.checked_in_at)}</TableCell>
+                    <TableCell>
+                      {row.acuity_hint ? (
+                        <AcuityBadge level={row.acuity_hint} />
+                      ) : (
+                        <SeverityBadge severity={(row.risk as "High" | "Medium" | "Low") || "Low"} />
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button asChild size="sm" variant="outline">
+                        <Link to="/receptionist/checkout/$patientId" params={{ patientId: row.patient_id }}>
+                          Checkout
+                        </Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </>
+  );
+}
+
+function DoctorDashboard() {
+  const { data: queues, isLoading, isError, refetch } = useQuery(queueAllQuery());
+
+  const flat = useMemo(() => {
+    return (queues ?? []).flatMap((q) =>
+      q.patients.map((p) => ({
+        ...p,
+        doctor_id: q.doctor_id,
+        doctor_name: q.doctor_name,
+        specialty: q.specialty,
+      })),
+    );
+  }, [queues]);
+
+  const waiting = flat.filter((p) => p.queue_status === "Waiting");
+  const inConsult = flat.filter((p) => p.queue_status === "In Consultation");
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-72" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <QueryError
+        message="Couldn’t load the doctor queue."
+        onRetry={() => {
+          void refetch();
+        }}
+      />
+    );
+  }
+
+  return (
+    <>
+      <PageHeader
+        title="My queue"
+        description="Patients routed by triage. Start a consultation when ready."
+        actions={
+          <Button asChild variant="outline">
+            <Link to="/patients">All patients</Link>
+          </Button>
+        }
+      />
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <KpiCard label="Waiting" value={waiting.length} icon={Clock3} tone="warning" />
+        <KpiCard label="In consultation" value={inConsult.length} icon={Stethoscope} />
+        <KpiCard
+          label="Active queues"
+          value={(queues ?? []).filter((q) => q.patients.length > 0).length}
+          icon={Activity}
+        />
+      </div>
+
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle className="text-base">Assigned patients</CardTitle>
+          <CardDescription>All specialty queues with waiting or in-consult patients.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {flat.length === 0 ? (
+            <EmptyState
+              icon={Stethoscope}
+              title="Queue is empty"
+              description="When reception completes triage and payment, patients appear here."
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>#</TableHead>
+                  <TableHead>Patient</TableHead>
+                  <TableHead>Complaint</TableHead>
+                  <TableHead>Doctor / Specialty</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Acuity</TableHead>
+                  <TableHead>Wait</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {flat.map((row) => (
+                  <TableRow key={`${row.doctor_id}-${row.patient_id}`}>
+                    <TableCell className="tabular-nums">{row.queue_position ?? "—"}</TableCell>
+                    <TableCell className="font-medium">
+                      {row.name}
+                      <div className="font-mono text-xs text-muted-foreground">{row.patient_id}</div>
+                    </TableCell>
+                    <TableCell className="max-w-[220px] truncate text-muted-foreground">
+                      {row.chief_complaint ?? "—"}
+                    </TableCell>
+                    <TableCell>
+                      <div>{row.doctor_name}</div>
+                      <div className="text-xs text-muted-foreground">{row.specialty}</div>
+                    </TableCell>
+                    <TableCell>
+                      <QueueStatusBadge status={row.queue_status} />
+                    </TableCell>
+                    <TableCell>
+                      {row.acuity_hint ? <AcuityBadge level={row.acuity_hint} /> : "—"}
+                    </TableCell>
+                    <TableCell>{waitMinutes(row.checked_in_at)}</TableCell>
+                    <TableCell className="text-right">
+                      <Button asChild size="sm">
+                        <Link to="/doctor/consult/$patientId" params={{ patientId: row.patient_id }}>
+                          Start consultation
+                        </Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </>
+  );
+}
+
+/** Fallback: previous ops charts if role is missing */
+function LegacyOpsDashboard() {
   const { data: patients, isLoading } = usePatients();
   const { data: referrals } = useQuery(referralsQuery());
   const { data: workflows } = useQuery(workflowsQuery());
@@ -90,7 +400,6 @@ function Dashboard() {
             <Skeleton key={i} className="h-24 w-full" />
           ))}
         </div>
-        <Skeleton className="h-72 w-full" />
       </div>
     );
   }

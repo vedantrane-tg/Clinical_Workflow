@@ -11,13 +11,20 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuditRouteImport } from './routes/audit'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as ReferralsRouteImport } from './routes/referrals'
 import { Route as RulesRouteImport } from './routes/rules'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SpecialistsRouteImport } from './routes/specialists'
 import { Route as WorkflowsRouteImport } from './routes/workflows'
 import { Route as PatientsIndexRouteImport } from './routes/patients.index'
 import { Route as PatientsPatientIdRouteImport } from './routes/patients.$patientId'
+import { Route as ReceptionistNewPatientRouteImport } from './routes/receptionist/new-patient'
+import { Route as DoctorConsultPatientIdRouteImport } from './routes/doctor/consult.$patientId'
+import { Route as DoctorReviewConsultationIdRouteImport } from './routes/doctor/review.$consultationId'
+import { Route as ReceptionistCheckoutPatientIdRouteImport } from './routes/receptionist/checkout.$patientId'
+import { Route as ReceptionistTriagePatientIdRouteImport } from './routes/receptionist/triage.$patientId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -27,6 +34,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuditRoute = AuditRouteImport.update({
   id: '/audit',
   path: '/audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReferralsRoute = ReferralsRouteImport.update({
@@ -42,6 +54,11 @@ const RulesRoute = RulesRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SpecialistsRoute = SpecialistsRouteImport.update({
@@ -64,87 +81,164 @@ const PatientsPatientIdRoute = PatientsPatientIdRouteImport.update({
   path: '/patients/$patientId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReceptionistNewPatientRoute = ReceptionistNewPatientRouteImport.update({
+  id: '/receptionist/new-patient',
+  path: '/receptionist/new-patient',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DoctorConsultPatientIdRoute = DoctorConsultPatientIdRouteImport.update({
+  id: '/doctor/consult/$patientId',
+  path: '/doctor/consult/$patientId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DoctorReviewConsultationIdRoute =
+  DoctorReviewConsultationIdRouteImport.update({
+    id: '/doctor/review/$consultationId',
+    path: '/doctor/review/$consultationId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ReceptionistCheckoutPatientIdRoute =
+  ReceptionistCheckoutPatientIdRouteImport.update({
+    id: '/receptionist/checkout/$patientId',
+    path: '/receptionist/checkout/$patientId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ReceptionistTriagePatientIdRoute =
+  ReceptionistTriagePatientIdRouteImport.update({
+    id: '/receptionist/triage/$patientId',
+    path: '/receptionist/triage/$patientId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
+  '/login': typeof LoginRoute
   '/referrals': typeof ReferralsRoute
   '/rules': typeof RulesRoute
   '/settings': typeof SettingsRoute
+  '/signup': typeof SignupRoute
   '/specialists': typeof SpecialistsRoute
   '/workflows': typeof WorkflowsRoute
   '/patients/$patientId': typeof PatientsPatientIdRoute
+  '/receptionist/new-patient': typeof ReceptionistNewPatientRoute
   '/patients/': typeof PatientsIndexRoute
+  '/doctor/consult/$patientId': typeof DoctorConsultPatientIdRoute
+  '/doctor/review/$consultationId': typeof DoctorReviewConsultationIdRoute
+  '/receptionist/checkout/$patientId': typeof ReceptionistCheckoutPatientIdRoute
+  '/receptionist/triage/$patientId': typeof ReceptionistTriagePatientIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
+  '/login': typeof LoginRoute
   '/referrals': typeof ReferralsRoute
   '/rules': typeof RulesRoute
   '/settings': typeof SettingsRoute
+  '/signup': typeof SignupRoute
   '/specialists': typeof SpecialistsRoute
   '/workflows': typeof WorkflowsRoute
   '/patients/$patientId': typeof PatientsPatientIdRoute
+  '/receptionist/new-patient': typeof ReceptionistNewPatientRoute
   '/patients': typeof PatientsIndexRoute
+  '/doctor/consult/$patientId': typeof DoctorConsultPatientIdRoute
+  '/doctor/review/$consultationId': typeof DoctorReviewConsultationIdRoute
+  '/receptionist/checkout/$patientId': typeof ReceptionistCheckoutPatientIdRoute
+  '/receptionist/triage/$patientId': typeof ReceptionistTriagePatientIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
+  '/login': typeof LoginRoute
   '/referrals': typeof ReferralsRoute
   '/rules': typeof RulesRoute
   '/settings': typeof SettingsRoute
+  '/signup': typeof SignupRoute
   '/specialists': typeof SpecialistsRoute
   '/workflows': typeof WorkflowsRoute
   '/patients/$patientId': typeof PatientsPatientIdRoute
+  '/receptionist/new-patient': typeof ReceptionistNewPatientRoute
   '/patients/': typeof PatientsIndexRoute
+  '/doctor/consult/$patientId': typeof DoctorConsultPatientIdRoute
+  '/doctor/review/$consultationId': typeof DoctorReviewConsultationIdRoute
+  '/receptionist/checkout/$patientId': typeof ReceptionistCheckoutPatientIdRoute
+  '/receptionist/triage/$patientId': typeof ReceptionistTriagePatientIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/audit'
+    | '/login'
     | '/referrals'
     | '/rules'
     | '/settings'
+    | '/signup'
     | '/specialists'
     | '/workflows'
     | '/patients/$patientId'
+    | '/receptionist/new-patient'
     | '/patients/'
+    | '/doctor/consult/$patientId'
+    | '/doctor/review/$consultationId'
+    | '/receptionist/checkout/$patientId'
+    | '/receptionist/triage/$patientId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/audit'
+    | '/login'
     | '/referrals'
     | '/rules'
     | '/settings'
+    | '/signup'
     | '/specialists'
     | '/workflows'
     | '/patients/$patientId'
+    | '/receptionist/new-patient'
     | '/patients'
+    | '/doctor/consult/$patientId'
+    | '/doctor/review/$consultationId'
+    | '/receptionist/checkout/$patientId'
+    | '/receptionist/triage/$patientId'
   id:
     | '__root__'
     | '/'
     | '/audit'
+    | '/login'
     | '/referrals'
     | '/rules'
     | '/settings'
+    | '/signup'
     | '/specialists'
     | '/workflows'
     | '/patients/$patientId'
+    | '/receptionist/new-patient'
     | '/patients/'
+    | '/doctor/consult/$patientId'
+    | '/doctor/review/$consultationId'
+    | '/receptionist/checkout/$patientId'
+    | '/receptionist/triage/$patientId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuditRoute: typeof AuditRoute
+  LoginRoute: typeof LoginRoute
   ReferralsRoute: typeof ReferralsRoute
   RulesRoute: typeof RulesRoute
   SettingsRoute: typeof SettingsRoute
+  SignupRoute: typeof SignupRoute
   SpecialistsRoute: typeof SpecialistsRoute
   WorkflowsRoute: typeof WorkflowsRoute
   PatientsPatientIdRoute: typeof PatientsPatientIdRoute
+  ReceptionistNewPatientRoute: typeof ReceptionistNewPatientRoute
   PatientsIndexRoute: typeof PatientsIndexRoute
+  DoctorConsultPatientIdRoute: typeof DoctorConsultPatientIdRoute
+  DoctorReviewConsultationIdRoute: typeof DoctorReviewConsultationIdRoute
+  ReceptionistCheckoutPatientIdRoute: typeof ReceptionistCheckoutPatientIdRoute
+  ReceptionistTriagePatientIdRoute: typeof ReceptionistTriagePatientIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -161,6 +255,13 @@ declare module '@tanstack/react-router' {
       path: '/audit'
       fullPath: '/audit'
       preLoaderRoute: typeof AuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/referrals': {
@@ -182,6 +283,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/specialists': {
@@ -212,19 +320,61 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PatientsPatientIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/receptionist/new-patient': {
+      id: '/receptionist/new-patient'
+      path: '/receptionist/new-patient'
+      fullPath: '/receptionist/new-patient'
+      preLoaderRoute: typeof ReceptionistNewPatientRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/doctor/consult/$patientId': {
+      id: '/doctor/consult/$patientId'
+      path: '/doctor/consult/$patientId'
+      fullPath: '/doctor/consult/$patientId'
+      preLoaderRoute: typeof DoctorConsultPatientIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/doctor/review/$consultationId': {
+      id: '/doctor/review/$consultationId'
+      path: '/doctor/review/$consultationId'
+      fullPath: '/doctor/review/$consultationId'
+      preLoaderRoute: typeof DoctorReviewConsultationIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/receptionist/checkout/$patientId': {
+      id: '/receptionist/checkout/$patientId'
+      path: '/receptionist/checkout/$patientId'
+      fullPath: '/receptionist/checkout/$patientId'
+      preLoaderRoute: typeof ReceptionistCheckoutPatientIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/receptionist/triage/$patientId': {
+      id: '/receptionist/triage/$patientId'
+      path: '/receptionist/triage/$patientId'
+      fullPath: '/receptionist/triage/$patientId'
+      preLoaderRoute: typeof ReceptionistTriagePatientIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuditRoute: AuditRoute,
+  LoginRoute: LoginRoute,
   ReferralsRoute: ReferralsRoute,
   RulesRoute: RulesRoute,
   SettingsRoute: SettingsRoute,
+  SignupRoute: SignupRoute,
   SpecialistsRoute: SpecialistsRoute,
   WorkflowsRoute: WorkflowsRoute,
   PatientsPatientIdRoute: PatientsPatientIdRoute,
+  ReceptionistNewPatientRoute: ReceptionistNewPatientRoute,
   PatientsIndexRoute: PatientsIndexRoute,
+  DoctorConsultPatientIdRoute: DoctorConsultPatientIdRoute,
+  DoctorReviewConsultationIdRoute: DoctorReviewConsultationIdRoute,
+  ReceptionistCheckoutPatientIdRoute: ReceptionistCheckoutPatientIdRoute,
+  ReceptionistTriagePatientIdRoute: ReceptionistTriagePatientIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

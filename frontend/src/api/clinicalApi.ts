@@ -10,10 +10,28 @@ import type {
   Severity,
   Specialist,
   SpecialistType,
+  TriageResult,
+  Payment,
+  DoctorQueue,
+  QueuePatient,
+  Consultation,
+  Encounter,
   WorkflowExecution,
 } from "@/types/clinical";
 import { API_BASE_URL, ENDPOINTS } from "./config";
 
+const TOKEN_KEY = "clinicalflow.auth.token";
+
+export function getAuthToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(TOKEN_KEY);
+}
+
+export function setAuthToken(token: string | null) {
+  if (typeof window === "undefined") return;
+  if (token) window.localStorage.setItem(TOKEN_KEY, token);
+  else window.localStorage.removeItem(TOKEN_KEY);
+}
 /**
  * Single abstraction the UI talks to. Every function maps 1:1 to a REST route
  * served by the FastAPI backend. UI components must never call services directly.
@@ -22,9 +40,14 @@ import { API_BASE_URL, ENDPOINTS } from "./config";
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getAuthToken();
   const res = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { "Content-Type": "application/json", ...init?.headers },
     ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init?.headers,
+    },
   });
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
@@ -34,8 +57,12 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 async function apiFetchNullable<T>(path: string): Promise<T | null> {
+  const token = getAuthToken();
   const res = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
   });
   if (res.status === 404) return null;
   if (!res.ok) {
@@ -44,6 +71,31 @@ async function apiFetchNullable<T>(path: string): Promise<T | null> {
   }
   return res.json() as Promise<T>;
 }
+
+async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(`API ${res.status}: ${text}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+export type AuthUserDto = {
+  user_id: string;
+  full_name: string;
+  email: string;
+  role: Role;
+  specialty: string | null;
+  is_active: boolean;
+};
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -60,6 +112,151 @@ export interface CreateReferralInput {
 // ─── API Client ─────────────────────────────────────────────────────────────
 
 export const clinicalApi = {
+  /** POST /auth/login */
+  login(email: string, password: string) {
+    return apiFetch<{ access_token: string; token_type: string; user: AuthUserDto }>(
+      ENDPOINTS.authLogin,
+      {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      },
+    );
+  },
+
+  /** POST /auth/signup */
+  signup(input: {
+    full_name: string;
+    email: string;
+    password: string;
+    role: Role;
+    specialty?: string | null;
+  }) {
+    return apiFetch<AuthUserDto>(ENDPOINTS.authSignup, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+
+  /** GET /auth/me */
+  me() {
+    return apiFetch<AuthUserDto>(ENDPOINTS.authMe);
+  },
+
+  /** POST /patients */
+  createPatient(input: {
+    name: string;
+    date_of_birth: string;
+    gender: string;
+    contact_phone?: string | null;
+    contact_email?: string | null;
+    insurance_id?: string | null;
+    address?: string | null;
+    conditions?: Record<string, unknown>[];
+    medications?: Record<string, unknown>[];
+  }): Promise<Patient> {
+    return apiFetch<Patient>(ENDPOINTS.patients, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+
+  /** POST /patients/{id}/checkin */
+  checkinPatient(
+    patientId: string,
+    input: {
+      chief_complaint: string;
+      vitals?: Record<string, unknown> | null;
+      actor_name: string;
+      actor_role: string;
+    },
+  ): Promise<TriageResult> {
+    return apiFetch<TriageResult>(ENDPOINTS.patientCheckin(patientId), {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+
+  /** GET /patients/{id}/triage/latest */
+  getLatestTriage(patientId: string): Promise<TriageResult | null> {
+    return apiFetchNullable<TriageResult>(ENDPOINTS.patientTriageLatest(patientId));
+  },
+
+  /** POST /consultations/upload */
+  uploadConsultation(patientId: string, file: File | Blob, filename = "consult.webm") {
+    const form = new FormData();
+    form.append("patient_id", patientId);
+    form.append("file", file, filename);
+    return apiUpload<Consultation>(ENDPOINTS.consultationsUpload, form);
+  },
+
+  /** POST /consultations/{id}/scribe */
+  scribeConsultation(consultationId: string): Promise<Consultation> {
+    return apiFetch<Consultation>(ENDPOINTS.consultationScribe(consultationId), {
+      method: "POST",
+    });
+  },
+
+  /** GET /consultations/{id} */
+  getConsultation(consultationId: string): Promise<Consultation | null> {
+    return apiFetchNullable<Consultation>(ENDPOINTS.consultation(consultationId));
+  },
+
+  /** POST /consultations/{id}/cds */
+  runCds(
+    consultationId: string,
+    actor: { actor_name: string; actor_role: string },
+  ): Promise<Encounter> {
+    return apiFetch<Encounter>(ENDPOINTS.consultationCds(consultationId), {
+      method: "POST",
+      body: JSON.stringify(actor),
+    });
+  },
+
+  /** POST /encounters/{id}/finalize */
+  finalizeEncounter(
+    encounterId: string,
+    input: {
+      approved_labs: Record<string, unknown>[];
+      approved_medications: Record<string, unknown>[];
+      approved_icd_codes: Record<string, unknown>[];
+      approved_referrals: Record<string, unknown>[];
+      doctor_notes?: string | null;
+      actor_name: string;
+      actor_role: string;
+    },
+  ): Promise<Encounter> {
+    return apiFetch<Encounter>(ENDPOINTS.encounterFinalize(encounterId), {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+
+  /** POST /payments */
+  createPayment(input: {
+    patient_id: string;
+    amount: number;
+    payment_type?: string;
+    payment_method: string;
+    encounter_id?: string | null;
+    actor_name?: string;
+    actor_role?: string;
+  }): Promise<Payment> {
+    return apiFetch<Payment>(ENDPOINTS.payments, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+
+  /** GET /queue?doctor_id= */
+  getDoctorQueue(doctorId: string): Promise<QueuePatient[]> {
+    return apiFetch<QueuePatient[]>(`${ENDPOINTS.queue}?doctor_id=${encodeURIComponent(doctorId)}`);
+  },
+
+  /** GET /queue/all */
+  getAllQueues(): Promise<DoctorQueue[]> {
+    return apiFetch<DoctorQueue[]>(ENDPOINTS.queueAll);
+  },
+
   /** GET /patients */
   listPatients(): Promise<Patient[]> {
     return apiFetch<Patient[]>(ENDPOINTS.patients);
@@ -93,9 +290,13 @@ export const clinicalApi = {
     onUpdate?: (execution: WorkflowExecution) => void,
   ): Promise<WorkflowExecution> {
     try {
+      const token = getAuthToken();
       const res = await fetch(`${API_BASE_URL}${ENDPOINTS.streamWorkflow(id)}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ actor }),
       });
 

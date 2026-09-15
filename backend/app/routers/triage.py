@@ -81,3 +81,19 @@ def checkin_patient(
     db.commit()
     db.refresh(triage)
     return triage
+
+
+@router.get("/patients/{patient_id}/triage/latest", response_model=TriageResultOut)
+def get_latest_triage(patient_id: str, db: Session = Depends(get_db)):
+    patient = db.get(Patient, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
+
+    triage = db.scalar(
+        select(TriageResult)
+        .where(TriageResult.patient_id == patient_id)
+        .order_by(TriageResult.created_at.desc())
+    )
+    if not triage:
+        raise HTTPException(status_code=404, detail="No triage result for this patient")
+    return triage

@@ -8,6 +8,10 @@ from app.database import Base, SessionLocal, engine
 
 from app.routers import patients, specialists, rules, referrals, audit, workflows, consultations, auth, triage, queue, payments
 from app.seed import seed_patients, seed_specialists, seed_referral_rules, seed_audit, seed_users
+from app.routers import (
+    patients, specialists, rules, referrals, audit, workflows,
+    consultations, auth, triage, queue, payments, encounters,
+)
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -29,7 +33,14 @@ app = FastAPI(title="Clinical Referral API", lifespan=lifespan)
 # CORS — allow the Vite dev server to reach the backend directly
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://localhost:8081",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8081",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -46,6 +57,7 @@ app.include_router(auth.router)
 app.include_router(triage.router)
 app.include_router(queue.router)
 app.include_router(payments.router)
+app.include_router(encounters.router)
 
 @app.get("/health")
 def health():

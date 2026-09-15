@@ -191,6 +191,55 @@ def scribe_consultation(consultation_id: str, db: Session = Depends(get_db)):
     return row
 
 
+@router.post("/consultations/{consultation_id}/cds", response_model=EncounterOut)
+def run_cds_for_consultation(
+    consultation_id: str,
+    body: CdsRequest = CdsRequest(),
+    db: Session = Depends(get_db),
+):
+    row = db.get(Consultation, consultation_id)
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Consultation {consultation_id} not found")
+    if not row.soap_note:
+        raise HTTPException(status_code=400, detail="SOAP note missing. Run /scribe first.")
+    if not row.patient_id:
+        raise HTTPException(status_code=400, detail="Consultation has no patient_id")
+
+    patient = db.get(Patient, row.patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail=f"Patient {row.patient_id} not found")
+
+    encounter = db.scalar(
+        select(Encounter).where(Encounter.consultation_id == consultation_id)
+    )
+    if not encounter:
+        raise HTTPException(
+            status_code=404,
+            detail="Encounter not found. Run /scribe first so an encounter is created.",
+        )
+
+    cds = run_cds_agent(patient=patient, soap_note=row.soap_note)
+
+    encounter.suggested_labs = cds.get("suggested_labs") or []
+    encounter.suggested_medications = cds.get("suggested_medications") or []
+    encounter.suggested_icd_codes = cds.get("suggested_icd_codes") or []
+    encounter.suggested_referrals = cds.get("suggested_referrals") or []
+    encounter.status = "Reviewed"
+
+    write_audit(
+        db,
+        user=body.actor_name,
+        role=body.actor_role,
+        action=f"CDS agent ran for consultation {consultation_id}",
+        patient_id=patient.patient_id,
+        agent="Agent3-CDS",
+    )
+
+    db.commit()
+    db.refresh(encounter)
+    return encounter
+
+
 @router.post("/consultations/{consultation_id}/process", response_model=ConsultationOut)
 def process_consultation(consultation_id: str, db: Session = Depends(get_db)):
     row = db.get(Consultation, consultation_id)
@@ -282,50 +331,3 @@ def record_local_consultation(
     db.refresh(row)
     return row
 
-@router.post("/consultations/{consultation_id}/cds", response_model=EncounterOut)
-def run_cds_for_consultation(
-    consultation_id: str,
-    body: CdsRequest = CdsRequest(),
-    db: Session = Depends(get_db),
-):
-    row = db.get(Consultation, consultation_id)
-    if not row:
-        raise HTTPException(status_code=404, detail=f"Consultation {consultation_id} not found")
-    if not row.soap_note:
-        raise HTTPException(status_code=400, detail="SOAP note missing. Run /scribe first.")
-    if not row.patient_id:
-        raise HTTPException(status_code=400, detail="Consultation has no patient_id")
-
-    patient = db.get(Patient, row.patient_id)
-    if not patient:
-        raise HTTPException(status_code=404, detail=f"Patient {row.patient_id} not found")
-
-    encounter = db.scalar(
-        select(Encounter).where(Encounter.consultation_id == consultation_id)
-    )
-    if not encounter:
-        raise HTTPException(
-            status_code=404,
-            detail="Encounter not found. Run /scribe first so an encounter is created.",
-        )
-
-    cds = run_cds_agent(patient=patient, soap_note=row.soap_note)
-
-    encounter.suggested_labs = cds.get("suggested_labs") or []
-    encounter.suggested_medications = cds.get("suggested_medications") or []
-    encounter.suggested_icd_codes = cds.get("suggested_icd_codes") or []
-    encounter.suggested_referrals = cds.get("suggested_referrals") or []
-    encounter.status = "Reviewed"
-
-    write_audit(
-        db,
-        user=body.actor_name,
-        role=body.actor_role,
-        action=f"CDS agent ran for consultation {consultation_id}",
-        patient_id=patient.patient_id,
-        agent="Agent3-CDS",
-    )
-
-    db.commit()
-    db.refresh(encounter)
-    return encounter

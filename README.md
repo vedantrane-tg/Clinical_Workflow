@@ -54,3 +54,6 @@ npm run dev:backend    # Start FastAPI with hot-reload
 npm run dev:frontend   # Start Vite dev server
 npm run build:frontend # Production build
 ```
+
+
+still going on...

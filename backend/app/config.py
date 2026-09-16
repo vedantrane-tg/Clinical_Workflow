@@ -19,6 +19,10 @@ class Settings:
     jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
     jwt_expiry_minutes: int = int(os.getenv("JWT_EXPIRY_MINUTES", "480"))
 
+    razorpay_key_id: str | None = os.getenv("RAZORPAY_KEY_ID") or None
+    razorpay_key_secret: str | None = os.getenv("RAZORPAY_KEY_SECRET") or None
+    razorpay_webhook_secret: str | None = os.getenv("RAZORPAY_WEBHOOK_SECRET") or None
+
     @property
     def ai_enabled(self) -> bool:
         return bool(self.google_api_key)
@@ -26,6 +30,10 @@ class Settings:
     @property
     def deepgram_enabled(self) -> bool:
         return bool(self.deepgram_api_key)
+
+    @property
+    def razorpay_enabled(self) -> bool:
+        return bool(self.razorpay_key_id and self.razorpay_key_secret)
 
 
 @lru_cache

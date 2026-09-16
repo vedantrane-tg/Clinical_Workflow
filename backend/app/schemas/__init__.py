@@ -10,7 +10,14 @@ from app.schemas.clinical_summary import ClinicalSummaryOut
 from app.schemas.consultation import ConsultationOut
 from app.schemas.patient import PatientOut, CreatePatientIn
 from app.schemas.triage import TriageResultOut, CheckinRequest  
-from app.schemas.payment import CreatePaymentIn, PaymentOut
+from app.schemas.payment import (
+    CreatePaymentIn,
+    PaymentOut,
+    CreateRazorpayOrderIn,
+    RazorpayOrderOut,
+    VerifyRazorpayPaymentIn,
+    RazorpayConfigOut,
+)
 from app.schemas.queue import QueuePatientOut, DoctorQueueOut
 from app.schemas.encounter import EncounterOut, CdsRequest, FinalizeEncounterIn
 
@@ -32,6 +39,10 @@ __all__ = ["PatientOut",
             "CheckinRequest", 
             "CreatePaymentIn", 
             "PaymentOut",
+            "CreateRazorpayOrderIn",
+            "RazorpayOrderOut",
+            "VerifyRazorpayPaymentIn",
+            "RazorpayConfigOut",
             "QueuePatientOut",
             "DoctorQueueOut",
             "EncounterOut",

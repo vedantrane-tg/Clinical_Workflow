@@ -148,6 +148,28 @@ export function useCreatePayment() {
   });
 }
 
+export function useRazorpayConfig() {
+  return useQuery({
+    queryKey: ["payments", "razorpay", "config"] as const,
+    queryFn: () => clinicalApi.getRazorpayConfig(),
+    staleTime: 60_000,
+  });
+}
+
+export function useCreateRazorpayOrder() {
+  return useMutation({
+    mutationFn: clinicalApi.createRazorpayOrder.bind(clinicalApi),
+  });
+}
+
+export function useVerifyRazorpayPayment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: clinicalApi.verifyRazorpayPayment.bind(clinicalApi),
+    onSuccess: (payment) => invalidateAll(queryClient, payment.patient_id),
+  });
+}
+
 export function useUploadAndScribe(patientId: string) {
   const queryClient = useQueryClient();
   return useMutation({

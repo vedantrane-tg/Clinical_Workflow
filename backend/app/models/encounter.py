@@ -34,6 +34,8 @@ class Encounter(Base):
     approved_medications: Mapped[list | None] = mapped_column(JSON, nullable=True)
     approved_icd_codes: Mapped[list | None] = mapped_column(JSON, nullable=True)
     approved_referrals: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    prescription: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    prescription_pdf_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="In Progress")
     finalized_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

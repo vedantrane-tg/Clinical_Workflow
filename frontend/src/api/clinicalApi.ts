@@ -39,6 +39,29 @@ export function setAuthToken(token: string | null) {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+function formatApiError(status: number, text: string): Error {
+  try {
+    const parsed = JSON.parse(text) as { detail?: unknown };
+    if (typeof parsed.detail === "string") {
+      return new Error(parsed.detail);
+    }
+    if (Array.isArray(parsed.detail)) {
+      const msgs = parsed.detail
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const row = item as { msg?: string };
+          const msg = row.msg?.replace(/^Value error,\s*/i, "") ?? null;
+          return msg;
+        })
+        .filter(Boolean);
+      if (msgs.length) return new Error(msgs.join("; "));
+    }
+  } catch {
+    // fall through
+  }
+  return new Error(`API ${status}: ${text}`);
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getAuthToken();
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -51,7 +74,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
-    throw new Error(`API ${res.status}: ${text}`);
+    throw formatApiError(res.status, text);
   }
   return res.json() as Promise<T>;
 }
@@ -147,10 +170,11 @@ export const clinicalApi = {
     name: string;
     date_of_birth: string;
     gender: string;
-    contact_phone?: string | null;
+    contact_phone: string;
     contact_email?: string | null;
     insurance_id?: string | null;
-    address?: string | null;
+    address: string;
+    pincode: string;
     conditions?: Record<string, unknown>[];
     medications?: Record<string, unknown>[];
   }): Promise<Patient> {
@@ -220,6 +244,7 @@ export const clinicalApi = {
       approved_medications: Record<string, unknown>[];
       approved_icd_codes: Record<string, unknown>[];
       approved_referrals: Record<string, unknown>[];
+      prescription: Record<string, unknown>[];
       doctor_notes?: string | null;
       actor_name: string;
       actor_role: string;
@@ -229,6 +254,38 @@ export const clinicalApi = {
       method: "POST",
       body: JSON.stringify(input),
     });
+  },
+
+  /** POST /encounters/{id}/prescription/pdf — generate and download */
+  async downloadPrescriptionPdf(
+    encounterId: string,
+    input: {
+      prescription: Record<string, unknown>[];
+      actor_name: string;
+    },
+  ): Promise<void> {
+    const token = getAuthToken();
+    const res = await fetch(`${API_BASE_URL}${ENDPOINTS.encounterPrescriptionPdf(encounterId)}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText);
+      throw formatApiError(res.status, text);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${encounterId}-prescription.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   },
 
   /** POST /payments */

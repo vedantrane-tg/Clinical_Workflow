@@ -41,17 +41,12 @@ def get_patient(patient_id: str, db: Session = Depends(get_db)):
 
 @router.post("/patients", response_model=PatientOut, status_code=201)
 def create_patient(body: CreatePatientIn, db: Session = Depends(get_db)):
-    if body.gender not in ("Male", "Female", "Other"):
-        raise HTTPException(status_code=400, detail="gender must be Male, Female, or Other")
-
-    try:
-        age = _age_from_dob(body.date_of_birth)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="date_of_birth must be YYYY-MM-DD")
+    # Field formats are validated by CreatePatientIn; age is derived from DOB.
+    age = _age_from_dob(body.date_of_birth)
 
     patient = Patient(
         patient_id=next_patient_id(db),
-        name=body.name.strip(),
+        name=body.name,
         date_of_birth=body.date_of_birth,
         gender=body.gender,
         age=age,
@@ -73,6 +68,7 @@ def create_patient(body: CreatePatientIn, db: Session = Depends(get_db)):
         contact_email=body.contact_email,
         insurance_id=body.insurance_id,
         address=body.address,
+        pincode=body.pincode,
     )
     db.add(patient)
     write_audit(

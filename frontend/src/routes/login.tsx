@@ -57,9 +57,15 @@ function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-card">
-        <div className="mb-6 text-center">
+        <div className="mb-6 flex flex-col items-center text-center">
+          <img
+            src="/teleglobals_logo.jpg"
+            alt="teleGlobal"
+            className="mb-3 size-16 rounded-full object-cover shadow-sm ring-1 ring-border"
+          />
           <h1 className="text-xl font-semibold text-foreground">ClinicalFlow AI</h1>
           <p className="mt-1 text-sm text-muted-foreground">Agentic Clinical Workflow</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground/80">Powered by teleGlobal</p>
         </div>
 
         <form className="space-y-4" onSubmit={(e) => void onSubmit(e)}>

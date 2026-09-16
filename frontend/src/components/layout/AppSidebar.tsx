@@ -52,12 +52,14 @@ export function AppSidebar() {
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col bg-sidebar text-sidebar-foreground">
       <div className="flex items-center gap-2.5 border-b border-sidebar-border px-5 py-4">
-        <span className="flex size-9 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-          <Activity className="size-5" aria-hidden />
-        </span>
-        <div className="leading-tight">
+        <img
+          src="/teleglobals_logo.jpg"
+          alt="teleGlobal"
+          className="size-9 shrink-0 rounded-full object-cover ring-1 ring-sidebar-border"
+        />
+        <div className="min-w-0 leading-tight">
           <p className="text-sm font-semibold text-sidebar-accent-foreground">ClinicalFlow AI</p>
-          <p className="text-[11px] text-sidebar-foreground/70">
+          <p className="truncate text-[11px] text-sidebar-foreground/70">
             {user?.role === "Doctor" ? "Doctor workspace" : "Reception desk"}
           </p>
         </div>

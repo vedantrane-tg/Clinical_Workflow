@@ -231,7 +231,7 @@ export const clinicalApi = {
     });
   },
 
-  /** POST /payments */
+  /** POST /payments — Cash / Insurance only */
   createPayment(input: {
     patient_id: string;
     amount: number;
@@ -242,6 +242,51 @@ export const clinicalApi = {
     actor_role?: string;
   }): Promise<Payment> {
     return apiFetch<Payment>(ENDPOINTS.payments, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+
+  /** GET /payments/razorpay/config */
+  getRazorpayConfig(): Promise<{ enabled: boolean; key_id: string | null }> {
+    return apiFetch(ENDPOINTS.razorpayConfig);
+  },
+
+  /** POST /payments/razorpay/order */
+  createRazorpayOrder(input: {
+    patient_id: string;
+    amount: number;
+    payment_type?: string;
+    payment_method: "Card" | "UPI";
+    encounter_id?: string | null;
+    actor_name?: string;
+    actor_role?: string;
+  }): Promise<{
+    payment_id: string;
+    order_id: string;
+    amount: number;
+    amount_paise: number;
+    currency: string;
+    key_id: string;
+    patient_id: string;
+    payment_method: string;
+  }> {
+    return apiFetch(ENDPOINTS.razorpayOrder, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+
+  /** POST /payments/razorpay/verify */
+  verifyRazorpayPayment(input: {
+    payment_id: string;
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+    actor_name?: string;
+    actor_role?: string;
+  }): Promise<Payment> {
+    return apiFetch<Payment>(ENDPOINTS.razorpayVerify, {
       method: "POST",
       body: JSON.stringify(input),
     });

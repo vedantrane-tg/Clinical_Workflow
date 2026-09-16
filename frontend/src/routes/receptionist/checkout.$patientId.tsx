@@ -13,8 +13,12 @@ import {
   patientQuery,
   specialistsQuery,
   useCreatePayment,
+  useCreateRazorpayOrder,
+  useRazorpayConfig,
+  useVerifyRazorpayPayment,
 } from "@/hooks/useClinicalQueries";
 import { useSession } from "@/hooks/useSession";
+import { openRazorpayCheckout } from "@/lib/razorpay";
 import type { Payment } from "@/types/clinical";
 
 export const Route = createFileRoute("/receptionist/checkout/$patientId")({
@@ -29,26 +33,34 @@ export const Route = createFileRoute("/receptionist/checkout/$patientId")({
 
 const CONSULTATION_FEE = 500;
 const METHODS = ["Cash", "Card", "UPI", "Insurance"] as const;
+const RAZORPAY_METHODS = new Set<(typeof METHODS)[number]>(["Card", "UPI"]);
 
 function CheckoutPage() {
   const { patientId } = Route.useParams();
   const { user, can } = useSession();
   const { data: patient, isLoading } = useQuery(patientQuery(patientId));
   const { data: specialists = [] } = useQuery(specialistsQuery());
+  const { data: razorpayConfig, isLoading: razorpayLoading } = useRazorpayConfig();
   const createPayment = useCreatePayment();
+  const createOrder = useCreateRazorpayOrder();
+  const verifyPayment = useVerifyRazorpayPayment();
   const [method, setMethod] = useState<(typeof METHODS)[number]>("UPI");
   const [receipt, setReceipt] = useState<Payment | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const doctorName = useMemo(() => {
     if (!patient?.assigned_doctor_id) return null;
     return specialists.find((s) => s.specialist_id === patient.assigned_doctor_id)?.name ?? null;
   }, [patient?.assigned_doctor_id, specialists]);
 
+  const razorpayEnabled = Boolean(razorpayConfig?.enabled);
+  const usesRazorpay = RAZORPAY_METHODS.has(method);
+
   if (!can("processPayment")) {
     return <Navigate to="/" />;
   }
 
-  if (isLoading) {
+  if (isLoading || razorpayLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-64" />
@@ -68,22 +80,102 @@ function CheckoutPage() {
     );
   }
 
-  async function processPayment() {
-    try {
-      const payment = await createPayment.mutateAsync({
+  async function processManualPayment() {
+    const payment = await createPayment.mutateAsync({
+      patient_id: patientId,
+      amount: CONSULTATION_FEE,
+      payment_type: "Consultation",
+      payment_method: method,
+      actor_name: user?.name ?? "Receptionist",
+      actor_role: user?.role ?? "Receptionist",
+    });
+    setReceipt(payment);
+    toast.success("Payment recorded");
+  }
+
+  async function processRazorpayPayment() {
+    if (!razorpayEnabled) {
+      toast.error("Razorpay is not configured. Add RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET to backend/.env");
+      return;
+    }
+
+    const order = await createOrder.mutateAsync({
+      patient_id: patientId,
+      amount: CONSULTATION_FEE,
+      payment_type: "Consultation",
+      payment_method: method as "Card" | "UPI",
+      actor_name: user?.name ?? "Receptionist",
+      actor_role: user?.role ?? "Receptionist",
+    });
+
+    await openRazorpayCheckout({
+      key: order.key_id,
+      amount: order.amount_paise,
+      currency: order.currency,
+      name: "ClinicalFlow AI",
+      description: `Consultation fee · ${patient.name}`,
+      order_id: order.order_id,
+      prefill: {
+        name: patient.name,
+      },
+      notes: {
+        payment_id: order.payment_id,
         patient_id: patientId,
-        amount: CONSULTATION_FEE,
-        payment_type: "Consultation",
-        payment_method: method,
-        actor_name: user?.name ?? "Receptionist",
-        actor_role: user?.role ?? "Receptionist",
-      });
-      setReceipt(payment);
-      toast.success("Payment completed");
+      },
+      theme: { color: "#0e7490" },
+      method:
+        method === "UPI"
+          ? { upi: true, card: false, netbanking: false, wallet: false }
+          : { card: true, upi: false, netbanking: true, wallet: false },
+      handler: (response) => {
+        void (async () => {
+          try {
+            setBusy(true);
+            const payment = await verifyPayment.mutateAsync({
+              payment_id: order.payment_id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              actor_name: user?.name ?? "Receptionist",
+              actor_role: user?.role ?? "Receptionist",
+            });
+            setReceipt(payment);
+            toast.success("Razorpay payment verified");
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Payment verification failed");
+          } finally {
+            setBusy(false);
+          }
+        })();
+      },
+      modal: {
+        ondismiss: () => {
+          toast.message("Payment cancelled");
+          setBusy(false);
+        },
+      },
+    });
+  }
+
+  async function processPayment() {
+    let keepBusyForCheckout = false;
+    try {
+      setBusy(true);
+      if (usesRazorpay) {
+        await processRazorpayPayment();
+        keepBusyForCheckout = razorpayEnabled;
+        return;
+      }
+      await processManualPayment();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Payment failed");
+    } finally {
+      if (!keepBusyForCheckout) setBusy(false);
     }
   }
+
+  const pending =
+    busy || createPayment.isPending || createOrder.isPending || verifyPayment.isPending;
 
   return (
     <>
@@ -159,18 +251,42 @@ function CheckoutPage() {
                   className="flex cursor-pointer items-center gap-3 rounded-md border border-border px-3 py-2 text-sm"
                 >
                   <RadioGroupItem value={m} id={`pay-${m}`} />
-                  <span>{m}</span>
+                  <span>
+                    {m}
+                    {RAZORPAY_METHODS.has(m) ? (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        {razorpayEnabled ? "via Razorpay" : "needs Razorpay keys"}
+                      </span>
+                    ) : (
+                      <span className="ml-2 text-xs text-muted-foreground">front desk</span>
+                    )}
+                  </span>
                 </label>
               ))}
             </RadioGroup>
 
+            {usesRazorpay && !razorpayEnabled ? (
+              <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm">
+                Razorpay keys are not set. Add <code className="font-mono text-xs">RAZORPAY_KEY_ID</code>{" "}
+                and <code className="font-mono text-xs">RAZORPAY_KEY_SECRET</code> to{" "}
+                <code className="font-mono text-xs">backend/.env</code>, then restart the API. Cash and
+                Insurance still work without keys.
+              </p>
+            ) : null}
+
             <div className="flex justify-end">
               <Button
                 type="button"
-                disabled={createPayment.isPending}
+                disabled={pending || (usesRazorpay && !razorpayEnabled)}
                 onClick={() => void processPayment()}
               >
-                {createPayment.isPending ? "Processing…" : "Process payment"}
+                {pending
+                  ? usesRazorpay
+                    ? "Opening Razorpay…"
+                    : "Processing…"
+                  : usesRazorpay
+                    ? "Pay with Razorpay"
+                    : "Process payment"}
               </Button>
             </div>
           </CardContent>

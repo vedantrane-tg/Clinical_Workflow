@@ -97,6 +97,7 @@ export interface Patient {
   contact_email?: string | null;
   insurance_id?: string | null;
   address?: string | null;
+  pincode?: string | null;
 }
 
 export interface ExtractedEHR {
@@ -307,6 +308,8 @@ export interface Encounter {
   approved_medications: Record<string, unknown>[] | null;
   approved_icd_codes: Record<string, unknown>[] | null;
   approved_referrals: Record<string, unknown>[] | null;
+  prescription: Record<string, unknown>[] | null;
+  prescription_pdf_path: string | null;
   status: string;
   finalized_at: string | null;
   finalized_by: string | null;

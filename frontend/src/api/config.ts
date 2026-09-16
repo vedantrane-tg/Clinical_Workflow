@@ -35,6 +35,7 @@ export const ENDPOINTS = {
   encounters: "/encounters",
   encounter: (id: string) => `/encounters/${id}`,
   encounterFinalize: (id: string) => `/encounters/${id}/finalize`,
+  encounterPrescriptionPdf: (id: string) => `/encounters/${id}/prescription/pdf`,
   payments: "/payments",
   payment: (id: string) => `/payments/${id}`,
   razorpayConfig: "/payments/razorpay/config",

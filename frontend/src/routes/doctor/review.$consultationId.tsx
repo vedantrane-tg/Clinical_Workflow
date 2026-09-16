@@ -1,16 +1,22 @@
 import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
+import { Download } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Pill } from "@/components/common/StatusBadge";
+import { PrescriptionEditor } from "@/components/consultation/PrescriptionEditor";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
 import { clinicalApi } from "@/api/clinicalApi";
+import {
+  DRUG_OPTIONS,
+  emptyPrescriptionRow,
+  toPrescriptionPayload,
+  type PrescriptionRow,
+} from "@/data/prescriptionCatalog";
 import { useSession } from "@/hooks/useSession";
 import type { Encounter } from "@/types/clinical";
 
@@ -18,7 +24,7 @@ export const Route = createFileRoute("/doctor/review/$consultationId")({
   head: ({ params }) => ({
     meta: [
       { title: `Orders ${params.consultationId} — ClinicalFlow AI` },
-      { name: "description", content: "Review CDS suggestions and finalize the encounter." },
+      { name: "description", content: "Review CDS suggestions, write prescription, and finalize." },
     ],
   }),
   component: ClinicalOrdersPage,
@@ -43,13 +49,21 @@ function ClinicalOrdersPage() {
   const [encounter, setEncounter] = useState<Encounter | null>(null);
   const [cdsLoading, setCdsLoading] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
-  const [doctorNotes, setDoctorNotes] = useState("");
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [prescriptionRows, setPrescriptionRows] = useState<PrescriptionRow[]>([
+    emptyPrescriptionRow(),
+  ]);
   const [selectedLabs, setSelectedLabs] = useState<SelectedMap>({});
   const [selectedMeds, setSelectedMeds] = useState<SelectedMap>({});
   const [selectedIcds, setSelectedIcds] = useState<SelectedMap>({});
   const [selectedRefs, setSelectedRefs] = useState<SelectedMap>({});
 
   const consultation = consultationQuery.data;
+  const prescriptionPayload = useMemo(
+    () => toPrescriptionPayload(prescriptionRows),
+    [prescriptionRows],
+  );
+  const hasValidPrescription = prescriptionPayload.length > 0;
 
   useEffect(() => {
     if (!consultation?.soap_note || encounter || cdsLoading) return;
@@ -67,6 +81,7 @@ function ClinicalOrdersPage() {
         setSelectedMeds(defaultSelected(result.suggested_medications, "meds"));
         setSelectedIcds(defaultSelected(result.suggested_icd_codes, "icd"));
         setSelectedRefs(defaultSelected(result.suggested_referrals, "ref"));
+        setPrescriptionRows(seedFromSuggestions(result.suggested_medications));
         toast.success("CDS suggestions ready");
       } catch (err) {
         if (!cancelled) {
@@ -116,9 +131,36 @@ function ClinicalOrdersPage() {
     );
   }
 
+  async function downloadPdf() {
+    if (!encounter) {
+      toast.error("Run CDS first");
+      return;
+    }
+    if (!hasValidPrescription) {
+      toast.error("Add at least one medicine to the prescription");
+      return;
+    }
+    setDownloadingPdf(true);
+    try {
+      await clinicalApi.downloadPrescriptionPdf(encounter.encounter_id, {
+        prescription: prescriptionPayload,
+        actor_name: user?.name ?? "Doctor",
+      });
+      toast.success("Prescription PDF downloaded");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "PDF download failed");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }
+
   async function finalize() {
     if (!encounter) {
       toast.error("Run CDS first");
+      return;
+    }
+    if (!hasValidPrescription) {
+      toast.error("Add at least one medicine before finalizing");
       return;
     }
     setFinalizing(true);
@@ -137,12 +179,12 @@ function ClinicalOrdersPage() {
         approved_medications,
         approved_icd_codes,
         approved_referrals,
-        doctor_notes: doctorNotes.trim() || null,
+        prescription: prescriptionPayload,
         actor_name: user?.name ?? "Doctor",
         actor_role: user?.role ?? "Doctor",
       });
       setEncounter(finalized);
-      toast.success("Encounter finalized");
+      toast.success("Encounter finalized with prescription");
       void navigate({ to: "/" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Finalize failed");
@@ -213,7 +255,7 @@ function ClinicalOrdersPage() {
               renderHint={(item) => String(item.reason ?? "")}
             />
             <SuggestionPanel
-              title="Medications"
+              title="Medications (CDS suggestions)"
               items={encounter.suggested_medications}
               prefix="meds"
               selected={selectedMeds}
@@ -257,29 +299,39 @@ function ClinicalOrdersPage() {
 
           <Card className="shadow-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-base">Doctor notes & finalize</CardTitle>
+              <div>
+                <CardTitle className="text-base">Prescription (Rx)</CardTitle>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Choose drug form, medicine, strength, frequency, and instructions. PDF matches this
+                  table.
+                </p>
+              </div>
               <Pill tone={encounter.status === "Finalized" ? "success" : "info"}>
                 {encounter.status}
               </Pill>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="doctor_notes">Notes</Label>
-                <Textarea
-                  id="doctor_notes"
-                  rows={3}
-                  value={doctorNotes}
-                  onChange={(e) => setDoctorNotes(e.target.value)}
-                  placeholder="Optional notes for the chart"
-                />
-              </div>
-              <div className="flex justify-end gap-2">
+              <PrescriptionEditor
+                rows={prescriptionRows}
+                onChange={setPrescriptionRows}
+                disabled={encounter.status === "Finalized"}
+              />
+              <div className="flex flex-wrap justify-end gap-2">
                 <Button asChild variant="outline">
                   <Link to="/">Cancel</Link>
                 </Button>
                 <Button
                   type="button"
-                  disabled={finalizing || encounter.status === "Finalized"}
+                  variant="outline"
+                  disabled={downloadingPdf || !hasValidPrescription}
+                  onClick={() => void downloadPdf()}
+                >
+                  <Download className="mr-1.5 size-4" />
+                  {downloadingPdf ? "Preparing PDF…" : "Download Rx PDF"}
+                </Button>
+                <Button
+                  type="button"
+                  disabled={finalizing || encounter.status === "Finalized" || !hasValidPrescription}
                   onClick={() => void finalize()}
                 >
                   {finalizing ? "Finalizing…" : "Sign & finalize encounter"}
@@ -293,6 +345,39 @@ function ClinicalOrdersPage() {
   );
 }
 
+function seedFromSuggestions(items: Record<string, unknown>[]): PrescriptionRow[] {
+  if (!items.length) return [emptyPrescriptionRow()];
+
+  const rows = items.slice(0, 5).map((item) => {
+    const row = emptyPrescriptionRow();
+    const suggestedName = String(item.name ?? "").trim().toLowerCase();
+    const suggestedDose = String(item.dose ?? "").trim();
+    const match = DRUG_OPTIONS.find((d) => d.name.toLowerCase() === suggestedName);
+    if (!match) return row;
+
+    const strength =
+      match.strengths.find((s) => s.toLowerCase() === suggestedDose.toLowerCase()) ??
+      match.strengths[0] ??
+      "";
+
+    return {
+      ...row,
+      drug_form: match.form,
+      drug_name: match.name,
+      strength,
+      morning: 1,
+      afternoon: 0,
+      night: 0,
+      duration_value: 7,
+      duration_unit: "day(s)" as const,
+      instruction: "After Food",
+    };
+  });
+
+  const filled = rows.filter((r) => r.drug_name);
+  return filled.length ? filled : [emptyPrescriptionRow()];
+}
+
 function defaultSelected(items: Record<string, unknown>[], prefix: string): SelectedMap {
   const map: SelectedMap = {};
   items.forEach((item, index) => {
@@ -300,7 +385,6 @@ function defaultSelected(items: Record<string, unknown>[], prefix: string): Sele
     const priority = String(item.priority ?? "").toLowerCase();
     map[key] = priority === "required" || priority === "";
   });
-  // If nothing marked required, pre-check all
   if (Object.values(map).every((v) => !v)) {
     Object.keys(map).forEach((k) => {
       map[k] = true;

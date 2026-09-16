@@ -37,11 +37,12 @@ const PAGE_SIZE = 10;
 
 function PatientsPage() {
   const { data: patients, isLoading, isError, refetch } = usePatients();
-  const { can } = useSession();
+  const { can, user } = useSession();
   const [term, setTerm] = useState("");
   const [risk, setRisk] = useState("all");
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(0);
+  const isReceptionist = user?.role === "Receptionist";
 
   const rows = useMemo(() => {
     const q = term.trim().toLowerCase();
@@ -192,9 +193,18 @@ function PatientsPage() {
                         <TableCell className="text-right tabular-nums">{p.referrals_count}</TableCell>
                         <TableCell className="text-right">
                           <Button asChild variant="outline" size="sm">
-                            <Link to="/patients/$patientId" params={{ patientId: p.patient_id }}>
-                              View
-                            </Link>
+                            {isReceptionist ? (
+                              <Link
+                                to="/receptionist/triage/$patientId"
+                                params={{ patientId: p.patient_id }}
+                              >
+                                View
+                              </Link>
+                            ) : (
+                              <Link to="/patients/$patientId" params={{ patientId: p.patient_id }}>
+                                View
+                              </Link>
+                            )}
                           </Button>
                         </TableCell>
                       </TableRow>

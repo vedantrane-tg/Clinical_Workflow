@@ -36,3 +36,4 @@ class Patient(Base):
     contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     insurance_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     address: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    pincode: Mapped[str | None] = mapped_column(String(16), nullable=True)

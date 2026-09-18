@@ -46,7 +46,10 @@ def create_patient(body: CreatePatientIn, db: Session = Depends(get_db)):
 
     patient = Patient(
         patient_id=next_patient_id(db),
-        name=body.name,
+        name=body.full_name,
+        first_name=body.first_name,
+        middle_name=body.middle_name,
+        last_name=body.last_name,
         date_of_birth=body.date_of_birth,
         gender=body.gender,
         age=age,
@@ -69,6 +72,10 @@ def create_patient(body: CreatePatientIn, db: Session = Depends(get_db)):
         insurance_id=body.insurance_id,
         address=body.address,
         pincode=body.pincode,
+        guardian_name=body.guardian_name,
+        guardian_relationship=body.guardian_relationship,
+        guardian_phone=body.guardian_phone,
+        guardian_email=body.guardian_email,
     )
     db.add(patient)
     write_audit(

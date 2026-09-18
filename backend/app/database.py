@@ -24,6 +24,20 @@ def ensure_schema() -> None:
         patient_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(patients)")).fetchall()}
         if "pincode" not in patient_cols:
             conn.execute(text("ALTER TABLE patients ADD COLUMN pincode VARCHAR(16)"))
+        if "guardian_name" not in patient_cols:
+            conn.execute(text("ALTER TABLE patients ADD COLUMN guardian_name VARCHAR(120)"))
+        if "guardian_relationship" not in patient_cols:
+            conn.execute(text("ALTER TABLE patients ADD COLUMN guardian_relationship VARCHAR(64)"))
+        if "guardian_phone" not in patient_cols:
+            conn.execute(text("ALTER TABLE patients ADD COLUMN guardian_phone VARCHAR(32)"))
+        if "guardian_email" not in patient_cols:
+            conn.execute(text("ALTER TABLE patients ADD COLUMN guardian_email VARCHAR(255)"))
+        if "first_name" not in patient_cols:
+            conn.execute(text("ALTER TABLE patients ADD COLUMN first_name VARCHAR(60)"))
+        if "middle_name" not in patient_cols:
+            conn.execute(text("ALTER TABLE patients ADD COLUMN middle_name VARCHAR(60)"))
+        if "last_name" not in patient_cols:
+            conn.execute(text("ALTER TABLE patients ADD COLUMN last_name VARCHAR(60)"))
 
         encounter_cols = {
             row[1] for row in conn.execute(text("PRAGMA table_info(encounters)")).fetchall()

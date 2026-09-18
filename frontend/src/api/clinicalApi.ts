@@ -167,7 +167,9 @@ export const clinicalApi = {
 
   /** POST /patients */
   createPatient(input: {
-    name: string;
+    first_name: string;
+    middle_name?: string | null;
+    last_name: string;
     date_of_birth: string;
     gender: string;
     contact_phone: string;
@@ -175,6 +177,10 @@ export const clinicalApi = {
     insurance_id?: string | null;
     address: string;
     pincode: string;
+    guardian_name?: string | null;
+    guardian_relationship?: string | null;
+    guardian_phone?: string | null;
+    guardian_email?: string | null;
     conditions?: Record<string, unknown>[];
     medications?: Record<string, unknown>[];
   }): Promise<Patient> {
@@ -347,6 +353,38 @@ export const clinicalApi = {
     return apiFetch<Payment>(ENDPOINTS.razorpayVerify, {
       method: "POST",
       body: JSON.stringify(input),
+    });
+  },
+
+  /** POST /payments/razorpay/upi-qr */
+  createUpiQr(input: {
+    patient_id: string;
+    amount: number;
+    payment_type?: string;
+    encounter_id?: string | null;
+    actor_name?: string;
+    actor_role?: string;
+  }): Promise<{
+    payment_id: string;
+    qr_id: string;
+    image_url: string;
+    amount: number;
+    amount_paise: number;
+    currency: string;
+    patient_id: string;
+    status: string;
+  }> {
+    return apiFetch(ENDPOINTS.razorpayUpiQr, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+
+  /** POST /payments/razorpay/upi-qr/{id}/sync */
+  syncUpiQrPayment(paymentId: string): Promise<Payment> {
+    return apiFetch<Payment>(ENDPOINTS.razorpayUpiQrSync(paymentId), {
+      method: "POST",
+      body: JSON.stringify({}),
     });
   },
 

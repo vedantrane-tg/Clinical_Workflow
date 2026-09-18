@@ -48,6 +48,45 @@ def create_razorpay_order(
         raise HTTPException(status_code=502, detail=f"Razorpay order failed: {exc}") from exc
 
 
+def create_upi_qr(
+    *,
+    amount_inr: float,
+    name: str,
+    description: str,
+    notes: dict | None = None,
+) -> dict:
+    """Create a single-use UPI QR code (desk scan flow)."""
+    client = get_razorpay_client()
+    payload = {
+        "type": "upi_qr",
+        "name": (name or "ClinicalFlow AI")[:255],
+        "usage": "single_use",
+        "fixed_amount": True,
+        "payment_amount": amount_to_paise(amount_inr),
+        "description": (description or "Consultation fee")[:255],
+        "notes": notes or {},
+    }
+    try:
+        return client.qrcode.create(data=payload)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"Razorpay UPI QR failed: {exc}") from exc
+
+
+def fetch_upi_qr_payments(qr_id: str) -> list[dict]:
+    client = get_razorpay_client()
+    try:
+        # razorpay-python exposes fetch_all_payments (not fetch_payments)
+        result = client.qrcode.fetch_all_payments(qr_id)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"Razorpay QR status failed: {exc}") from exc
+    if isinstance(result, dict):
+        items = result.get("items") or []
+        return list(items) if isinstance(items, list) else []
+    if isinstance(result, list):
+        return result
+    return []
+
+
 def verify_payment_signature(
     *,
     order_id: str,

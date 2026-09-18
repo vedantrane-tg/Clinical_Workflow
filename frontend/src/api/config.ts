@@ -41,6 +41,8 @@ export const ENDPOINTS = {
   razorpayConfig: "/payments/razorpay/config",
   razorpayOrder: "/payments/razorpay/order",
   razorpayVerify: "/payments/razorpay/verify",
+  razorpayUpiQr: "/payments/razorpay/upi-qr",
+  razorpayUpiQrSync: (id: string) => `/payments/razorpay/upi-qr/${id}/sync`,
   queue: "/queue",
   queueAll: "/queue/all",
   referrals: "/referrals",

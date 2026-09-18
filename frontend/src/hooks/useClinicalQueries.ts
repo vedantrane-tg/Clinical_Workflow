@@ -170,6 +170,24 @@ export function useVerifyRazorpayPayment() {
   });
 }
 
+export function useCreateUpiQr() {
+  return useMutation({
+    mutationFn: clinicalApi.createUpiQr.bind(clinicalApi),
+  });
+}
+
+export function useSyncUpiQrPayment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (paymentId: string) => clinicalApi.syncUpiQrPayment(paymentId),
+    onSuccess: (payment) => {
+      if (payment.status === "Completed") {
+        invalidateAll(queryClient, payment.patient_id);
+      }
+    },
+  });
+}
+
 export function useUploadAndScribe(patientId: string) {
   const queryClient = useQueryClient();
   return useMutation({

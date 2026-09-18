@@ -4,6 +4,7 @@ from datetime import date, datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 NAME_RE = re.compile(r"^[A-Za-z][A-Za-z .'-]{1,118}$")
+NAME_PART_RE = re.compile(r"^[A-Za-z][A-Za-z'-]{0,58}$")
 PHONE_E164_RE = re.compile(r"^\+[1-9]\d{7,14}$")
 PINCODE_RE = re.compile(r"^[1-9]\d{5}$")
 EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
@@ -31,7 +32,9 @@ def _empty_to_none(value: str | None) -> str | None:
 
 
 class CreatePatientIn(BaseModel):
-    name: str = Field(min_length=2, max_length=120)
+    first_name: str = Field(min_length=1, max_length=60)
+    middle_name: str | None = None
+    last_name: str = Field(min_length=1, max_length=60)
     date_of_birth: str  # "YYYY-MM-DD"
     gender: str  # "Male" | "Female" | "Other"
     contact_phone: str = Field(min_length=8, max_length=20)
@@ -39,16 +42,35 @@ class CreatePatientIn(BaseModel):
     insurance_id: str | None = None
     address: str = Field(min_length=5, max_length=512)
     pincode: str = Field(min_length=6, max_length=6)
+    guardian_name: str | None = None
+    guardian_relationship: str | None = None
+    guardian_phone: str | None = None
+    guardian_email: str | None = None
     conditions: list[dict] = []
     medications: list[dict] = []
 
-    @field_validator("name")
+    @field_validator("first_name", "last_name")
     @classmethod
-    def validate_name(cls, value: str) -> str:
-        name = value.strip()
-        if not NAME_RE.match(name):
-            raise ValueError("Name must be 2–120 letters (spaces, hyphens, apostrophes allowed)")
-        return name
+    def validate_name_part(cls, value: str) -> str:
+        part = value.strip()
+        if not NAME_PART_RE.match(part):
+            raise ValueError("Use letters only (hyphens and apostrophes allowed)")
+        return part
+
+    @field_validator("middle_name")
+    @classmethod
+    def validate_middle_name(cls, value: str | None) -> str | None:
+        middle = _empty_to_none(value)
+        if middle is None:
+            return None
+        if not NAME_PART_RE.match(middle):
+            raise ValueError("Use letters only (hyphens and apostrophes allowed)")
+        return middle
+
+    @property
+    def full_name(self) -> str:
+        parts = [self.first_name, self.middle_name, self.last_name]
+        return " ".join(p for p in parts if p)
 
     @field_validator("date_of_birth")
     @classmethod
@@ -125,6 +147,49 @@ class CreatePatientIn(BaseModel):
             raise ValueError("Insurance ID must be 3–63 alphanumeric characters")
         return insurance
 
+    @field_validator("guardian_name")
+    @classmethod
+    def validate_guardian(cls, value: str | None) -> str | None:
+        guardian = _empty_to_none(value)
+        if guardian is None:
+            return None
+        if not NAME_RE.match(guardian):
+            raise ValueError("Guardian name must be 2–120 letters (spaces, hyphens, apostrophes allowed)")
+        return guardian
+
+    @field_validator("guardian_relationship")
+    @classmethod
+    def validate_guardian_relationship(cls, value: str | None) -> str | None:
+        relationship = _empty_to_none(value)
+        if relationship is None:
+            return None
+        allowed = {
+            "Parent",
+            "Mother",
+            "Father",
+            "Spouse",
+            "Sibling",
+            "Grandparent",
+            "Legal guardian",
+            "Other",
+        }
+        if relationship not in allowed:
+            raise ValueError("Invalid guardian relationship")
+        return relationship
+
+    @field_validator("guardian_phone")
+    @classmethod
+    def validate_guardian_phone(cls, value: str | None) -> str | None:
+        phone = _empty_to_none(value)
+        if phone is None:
+            return None
+        return cls.validate_phone(phone)
+
+    @field_validator("guardian_email")
+    @classmethod
+    def validate_guardian_email(cls, value: str | None) -> str | None:
+        return cls.validate_email(value)
+
     @field_validator("address")
     @classmethod
     def validate_address(cls, value: str) -> str:
@@ -183,6 +248,9 @@ class PatientOut(BaseModel):
 
     patient_id: str
     name: str
+    first_name: str | None = None
+    middle_name: str | None = None
+    last_name: str | None = None
     date_of_birth: str
     gender: str
     age: int
@@ -207,3 +275,7 @@ class PatientOut(BaseModel):
     insurance_id: str | None = None
     address: str | None = None
     pincode: str | None = None
+    guardian_name: str | None = None
+    guardian_relationship: str | None = None
+    guardian_phone: str | None = None
+    guardian_email: str | None = None

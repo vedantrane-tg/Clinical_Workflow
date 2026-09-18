@@ -64,11 +64,18 @@ export const Route = createFileRoute("/")({
 
 const RISK_COLORS = ["var(--destructive)", "var(--warning)", "var(--success)"];
 
-function waitMinutes(checkedInAt: string | null): string {
+function formatWaitDuration(checkedInAt: string | null): string {
   if (!checkedInAt) return "—";
   const ms = Date.now() - new Date(checkedInAt).getTime();
   if (Number.isNaN(ms) || ms < 0) return "—";
-  return `${Math.max(0, Math.round(ms / 60_000))}m`;
+
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${hours}:${pad(minutes)}:${pad(seconds)}`;
 }
 
 function Dashboard() {
@@ -136,7 +143,8 @@ function ReceptionistDashboard() {
       />
     );
   }
-
+let date = new Date();
+let today = date.toLocaleDateString();
   return (
     <>
       <PageHeader
@@ -153,15 +161,15 @@ function ReceptionistDashboard() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Registered patients" value={stats.registered} icon={Users} />
-        <KpiCard label="Checked in today" value={stats.checkedIn} icon={UserRoundCheck} tone="success" />
+        <KpiCard label="Total Reg Patient" value={stats.registered} icon={Users} />
+        <KpiCard label={`Checked in ${today}`} value={stats.checkedIn} icon={UserRoundCheck} tone="success" />
         <KpiCard label="Waiting" value={stats.waiting} icon={Clock3} tone="warning" />
         <KpiCard label="In consultation" value={stats.inConsult} icon={Stethoscope} hint={`${stats.completed} completed`} />
       </div>
 
       <Card className="shadow-card">
         <CardHeader>
-          <CardTitle className="text-base">Live waiting queue</CardTitle>
+          <CardTitle className="text-base">Patient Onqueue</CardTitle>
           <CardDescription>Patients waiting after triage and payment routing.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -185,7 +193,7 @@ function ReceptionistDashboard() {
                   <TableHead>Complaint</TableHead>
                   <TableHead>Doctor</TableHead>
                   <TableHead>Wait</TableHead>
-                  <TableHead>Acuity</TableHead>
+                  <TableHead>Severity</TableHead>
                   <TableHead className="text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
@@ -204,7 +212,7 @@ function ReceptionistDashboard() {
                       <div>{row.doctor_name}</div>
                       <div className="text-xs text-muted-foreground">{row.specialty}</div>
                     </TableCell>
-                    <TableCell>{waitMinutes(row.checked_in_at)}</TableCell>
+                    <TableCell>{formatWaitDuration(row.checked_in_at)}</TableCell>
                     <TableCell>
                       {row.acuity_hint ? (
                         <AcuityBadge level={row.acuity_hint} />
@@ -336,7 +344,7 @@ function DoctorDashboard() {
                     <TableCell>
                       {row.acuity_hint ? <AcuityBadge level={row.acuity_hint} /> : "—"}
                     </TableCell>
-                    <TableCell>{waitMinutes(row.checked_in_at)}</TableCell>
+                    <TableCell>{formatWaitDuration(row.checked_in_at)}</TableCell>
                     <TableCell className="text-right">
                       <Button asChild size="sm">
                         <Link to="/doctor/consult/$patientId" params={{ patientId: row.patient_id }}>

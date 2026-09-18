@@ -29,7 +29,7 @@ import { useSession } from "@/hooks/useSession";
 export const Route = createFileRoute("/receptionist/new-patient")({
   head: () => ({
     meta: [
-      { title: "New Patient — ClinicalFlow AI" },
+      { title: "New Patient Registration Form — ClinicalFlow AI" },
       { name: "description", content: "Register a new patient at the reception desk." },
     ],
   }),
@@ -61,14 +61,30 @@ const optionalText = (max: number) =>
     .optional()
     .or(z.literal(""));
 
+const namePart = (label: string, required: boolean) => {
+  const base = z
+    .string()
+    .trim()
+    .max(60, `${label} must be at most 60 characters`);
+  if (required) {
+    return base
+      .min(1, `${label} is required`)
+      .regex(/^[A-Za-z][A-Za-z'-]*$/, "Use letters only (hyphens, apostrophes allowed)");
+  }
+  return base
+    .optional()
+    .or(z.literal(""))
+    .refine(
+      (value) => !value || /^[A-Za-z][A-Za-z'-]*$/.test(value),
+      "Use letters only (hyphens, apostrophes allowed)",
+    );
+};
+
 const schema = z
   .object({
-    name: z
-      .string()
-      .trim()
-      .min(2, "Name is required")
-      .max(120, "Name must be at most 120 characters")
-      .regex(/^[A-Za-z][A-Za-z .'-]*$/, "Use letters only (spaces, hyphens, apostrophes allowed)"),
+    first_name: namePart("First name", true),
+    middle_name: namePart("Middle name", false),
+    last_name: namePart("Last name", true),
     date_of_birth: z
       .string()
       .min(1, "Date of birth is required")
@@ -125,6 +141,34 @@ const schema = z
       .trim()
       .min(1, "Pincode is required")
       .regex(/^[1-9]\d{5}$/, "Enter a valid 6-digit pincode"),
+    guardian_name: z
+      .string()
+      .trim()
+      .max(120, "Guardian name must be at most 120 characters")
+      .optional()
+      .or(z.literal(""))
+      .refine(
+        (value) => !value || /^[A-Za-z][A-Za-z .'-]*$/.test(value),
+        "Use letters only (spaces, hyphens, apostrophes allowed)",
+      ),
+    guardian_relationship: z
+      .enum(["", "Parent", "Mother", "Father", "Spouse", "Sibling", "Grandparent", "Legal guardian", "Other"])
+      .optional(),
+    guardian_phone_country_code: z.enum(
+      COUNTRY_CODES.map((c) => c.code) as [CountryCode, ...CountryCode[]],
+    ),
+    guardian_phone: z
+      .string()
+      .trim()
+      .optional()
+      .or(z.literal(""))
+      .refine((value) => !value || /^\d+$/.test(value), "Phone must contain digits only"),
+    guardian_email: z
+      .string()
+      .trim()
+      .optional()
+      .or(z.literal(""))
+      .refine((value) => !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value), "Enter a valid email"),
     condition_name: optionalText(120),
     condition_code: z
       .string()
@@ -145,6 +189,28 @@ const schema = z
         code: z.ZodIssueCode.custom,
         path: ["contact_phone"],
         message: `Enter a valid ${meta.digits}-digit number for ${meta.code}`,
+      });
+    }
+    if (values.guardian_phone) {
+      const gMeta = countryMeta(values.guardian_phone_country_code);
+      if (!gMeta.pattern.test(values.guardian_phone)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["guardian_phone"],
+          message: `Enter a valid ${gMeta.digits}-digit number for ${gMeta.code}`,
+        });
+      }
+    }
+    const guardianAny =
+      Boolean(values.guardian_name?.trim()) ||
+      Boolean(values.guardian_relationship) ||
+      Boolean(values.guardian_phone?.trim()) ||
+      Boolean(values.guardian_email?.trim());
+    if (guardianAny && !values.guardian_name?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["guardian_name"],
+        message: "Enter guardian name when providing guardian details",
       });
     }
     if (values.condition_code && !values.condition_name) {
@@ -186,7 +252,9 @@ function NewPatientPage() {
     resolver: zodResolver(schema),
     mode: "onChange",
     defaultValues: {
-      name: "",
+      first_name: "",
+      middle_name: "",
+      last_name: "",
       date_of_birth: "",
       gender: "Female",
       phone_country_code: "+91",
@@ -195,6 +263,11 @@ function NewPatientPage() {
       insurance_id: "",
       address: "",
       pincode: "",
+      guardian_name: "",
+      guardian_relationship: "",
+      guardian_phone_country_code: "+91",
+      guardian_phone: "",
+      guardian_email: "",
       condition_name: "",
       condition_code: "",
       medication_name: "",
@@ -204,6 +277,7 @@ function NewPatientPage() {
 
   const canSubmit = form.formState.isValid && !createPatient.isPending;
   const selectedCountry = countryMeta(form.watch("phone_country_code"));
+  const guardianCountry = countryMeta(form.watch("guardian_phone_country_code"));
 
   if (user && !can("registerPatient")) {
     return <Navigate to="/" />;
@@ -238,7 +312,9 @@ function NewPatientPage() {
 
     try {
       const patient = await createPatient.mutateAsync({
-        name: values.name.trim(),
+        first_name: values.first_name.trim(),
+        middle_name: values.middle_name?.trim() || null,
+        last_name: values.last_name.trim(),
         date_of_birth: values.date_of_birth,
         gender: values.gender,
         contact_phone: toE164(values.phone_country_code, values.contact_phone),
@@ -246,6 +322,12 @@ function NewPatientPage() {
         insurance_id: values.insurance_id?.trim() || null,
         address: values.address.trim(),
         pincode: values.pincode.trim(),
+        guardian_name: values.guardian_name?.trim() || null,
+        guardian_relationship: values.guardian_relationship || null,
+        guardian_phone: values.guardian_phone?.trim()
+          ? toE164(values.guardian_phone_country_code, values.guardian_phone)
+          : null,
+        guardian_email: values.guardian_email?.trim() || null,
         conditions,
         medications,
       });
@@ -262,7 +344,7 @@ function NewPatientPage() {
   return (
     <>
       <PageHeader
-        title="New Patient"
+        title="New Patient Registration Form"
         description="Register a walk-in patient, then continue to triage."
         actions={
           <Button asChild variant="outline">
@@ -283,15 +365,44 @@ function NewPatientPage() {
             <CardContent className="grid gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
-                name="name"
+                name="first_name"
                 render={({ field }) => (
-                  <FormItem className="sm:col-span-2">
+                  <FormItem>
                     <FormLabel>
-                      Full name
+                      First name
                       <RequiredMark />
                     </FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. Riya Patel" autoComplete="name" {...field} />
+                      <Input placeholder="e.g. Riya" autoComplete="given-name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="middle_name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Middle name (optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. K" autoComplete="additional-name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="last_name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Last name
+                      <RequiredMark />
+                    </FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. Patel" autoComplete="family-name" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -448,6 +559,132 @@ function NewPatientPage() {
                         maxLength={6}
                         placeholder="e.g. 400053"
                         autoComplete="postal-code"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle className="text-base">Guardian</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Optional — for minors, dependents, or when a caregiver should be contacted.
+              </p>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="guardian_name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Guardian name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. Suresh Patel" autoComplete="off" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="guardian_relationship"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Relationship</FormLabel>
+                    <Select
+                      onValueChange={(value) => field.onChange(value === "none" ? "" : value)}
+                      value={field.value || "none"}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select relationship" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">Not specified</SelectItem>
+                        <SelectItem value="Parent">Parent</SelectItem>
+                        <SelectItem value="Mother">Mother</SelectItem>
+                        <SelectItem value="Father">Father</SelectItem>
+                        <SelectItem value="Spouse">Spouse</SelectItem>
+                        <SelectItem value="Sibling">Sibling</SelectItem>
+                        <SelectItem value="Grandparent">Grandparent</SelectItem>
+                        <SelectItem value="Legal guardian">Legal guardian</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="guardian_phone"
+                render={({ field }) => (
+                  <FormItem className="sm:col-span-2">
+                    <FormLabel>Guardian phone</FormLabel>
+                    <div className="flex gap-2">
+                      <FormField
+                        control={form.control}
+                        name="guardian_phone_country_code"
+                        render={({ field: codeField }) => (
+                          <FormItem className="w-[8.5rem] shrink-0 space-y-0">
+                            <Select
+                              onValueChange={(value) => {
+                                codeField.onChange(value);
+                                void form.trigger("guardian_phone");
+                              }}
+                              value={codeField.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger aria-label="Guardian country code">
+                                  <SelectValue placeholder="Code" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {COUNTRY_CODES.map((c) => (
+                                  <SelectItem key={c.code} value={c.code}>
+                                    {c.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+                      <FormControl>
+                        <Input
+                          type="tel"
+                          inputMode="numeric"
+                          maxLength={guardianCountry.digits}
+                          placeholder={`e.g. ${guardianCountry.placeholder}`}
+                          autoComplete="tel-national"
+                          {...field}
+                          onChange={(e) => {
+                            field.onChange(e.target.value.replace(/\D/g, ""));
+                          }}
+                        />
+                      </FormControl>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="guardian_email"
+                render={({ field }) => (
+                  <FormItem className="sm:col-span-2">
+                    <FormLabel>Guardian email</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        placeholder="e.g. guardian@example.com"
+                        autoComplete="email"
                         {...field}
                       />
                     </FormControl>

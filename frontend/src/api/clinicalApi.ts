@@ -167,7 +167,9 @@ export const clinicalApi = {
 
   /** POST /patients */
   createPatient(input: {
-    name: string;
+    first_name: string;
+    middle_name?: string | null;
+    last_name: string;
     date_of_birth: string;
     gender: string;
     contact_phone: string;
@@ -175,6 +177,10 @@ export const clinicalApi = {
     insurance_id?: string | null;
     address: string;
     pincode: string;
+    guardian_name?: string | null;
+    guardian_relationship?: string | null;
+    guardian_phone?: string | null;
+    guardian_email?: string | null;
     conditions?: Record<string, unknown>[];
     medications?: Record<string, unknown>[];
   }): Promise<Patient> {

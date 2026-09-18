@@ -76,6 +76,9 @@ export interface Demographics {
 export interface Patient {
   patient_id: string;
   name: string;
+  first_name?: string | null;
+  middle_name?: string | null;
+  last_name?: string | null;
   date_of_birth: string;
   gender: Gender;
   age: number;
@@ -98,6 +101,10 @@ export interface Patient {
   insurance_id?: string | null;
   address?: string | null;
   pincode?: string | null;
+  guardian_name?: string | null;
+  guardian_relationship?: string | null;
+  guardian_phone?: string | null;
+  guardian_email?: string | null;
 }
 
 export interface ExtractedEHR {

@@ -12,9 +12,29 @@ def utcnow() -> datetime:
 
 
 def next_referral_id(db: Session) -> str:
-    # Count existing + offset so IDs look like REF-3001, REF-3002, ...
-    count = len(db.scalars(select(Referral)).all())
-    return f"REF-{3001 + count}"
+    """Allocate REF-3001+ uniquely, including pending rows in this session."""
+    max_n = 3000
+
+    def _consider(referral_id: str | None) -> None:
+        nonlocal max_n
+        if not referral_id:
+            return
+        try:
+            n = int(str(referral_id).rsplit("-", 1)[-1])
+        except ValueError:
+            return
+        if n > max_n:
+            max_n = n
+
+    for ref in db.scalars(select(Referral)).all():
+        _consider(ref.referral_id)
+
+    # Uncommitted Referral objects already added in this transaction
+    for obj in db.new:
+        if isinstance(obj, Referral):
+            _consider(getattr(obj, "referral_id", None))
+
+    return f"REF-{max_n + 1}"
 
 
 

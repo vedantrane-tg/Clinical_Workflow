@@ -11,14 +11,18 @@ from app.models import Patient, Payment
 from app.schemas import CreatePaymentIn, PaymentOut
 from app.schemas.payment import (
     CreateRazorpayOrderIn,
+    CreateUpiQrIn,
     RazorpayConfigOut,
     RazorpayOrderOut,
+    UpiQrOut,
     VerifyRazorpayPaymentIn,
 )
 from app.services.ids import next_payment_id, utcnow, write_audit
 from app.services.razorpay_service import (
     amount_to_paise,
     create_razorpay_order,
+    create_upi_qr,
+    fetch_upi_qr_payments,
     verify_payment_signature,
     verify_webhook_signature,
 )
@@ -158,6 +162,115 @@ def create_razorpay_payment_order(body: CreateRazorpayOrderIn, db: Session = Dep
     )
 
 
+@router.post("/payments/razorpay/upi-qr", response_model=UpiQrOut, status_code=201)
+def create_upi_qr_payment(body: CreateUpiQrIn, db: Session = Depends(get_db)):
+    """Create a pending payment + Razorpay UPI QR image for desk scanning."""
+    settings = get_settings()
+    if not settings.razorpay_enabled:
+        raise HTTPException(
+            status_code=503,
+            detail="Razorpay is not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.",
+        )
+
+    patient = db.get(Patient, body.patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail=f"Patient {body.patient_id} not found")
+
+    if body.payment_type not in ("Consultation", "Follow-up", "Lab", "Procedure"):
+        raise HTTPException(status_code=400, detail="Invalid payment_type")
+
+    payment_id = next_payment_id(db)
+    qr = create_upi_qr(
+        amount_inr=body.amount,
+        name="ClinicalFlow AI",
+        description=f"Consultation fee · {patient.name}",
+        notes={
+            "payment_id": payment_id,
+            "patient_id": body.patient_id,
+            "payment_method": "UPI",
+            "actor_name": body.actor_name,
+        },
+    )
+    image_url = qr.get("image_url") or ""
+    if not image_url:
+        raise HTTPException(status_code=502, detail="Razorpay did not return a QR image URL")
+
+    now = utcnow()
+    payment = Payment(
+        payment_id=payment_id,
+        patient_id=body.patient_id,
+        encounter_id=body.encounter_id,
+        amount=body.amount,
+        currency="INR",
+        payment_type=body.payment_type,
+        payment_method="UPI",
+        status="Pending",
+        transaction_ref=qr["id"],
+        created_at=now,
+        completed_at=None,
+    )
+    db.add(payment)
+    write_audit(
+        db,
+        user=body.actor_name,
+        role=body.actor_role,
+        action=f"UPI QR created for {payment_id} ({qr['id']})",
+        patient_id=body.patient_id,
+        agent="Razorpay",
+        result="Info",
+    )
+    db.commit()
+    db.refresh(payment)
+
+    return UpiQrOut(
+        payment_id=payment.payment_id,
+        qr_id=qr["id"],
+        image_url=image_url,
+        amount=payment.amount,
+        amount_paise=amount_to_paise(payment.amount),
+        currency=payment.currency,
+        patient_id=payment.patient_id,
+        status=payment.status,
+    )
+
+
+@router.post("/payments/razorpay/upi-qr/{payment_id}/sync", response_model=PaymentOut)
+def sync_upi_qr_payment(payment_id: str, db: Session = Depends(get_db)):
+    """Poll Razorpay for QR payment capture and mark local payment completed."""
+    payment = db.get(Payment, payment_id)
+    if not payment:
+        raise HTTPException(status_code=404, detail=f"Payment {payment_id} not found")
+    if payment.status == "Completed":
+        return payment
+    if payment.payment_method != "UPI" or not payment.transaction_ref:
+        raise HTTPException(status_code=400, detail="Not a pending UPI QR payment")
+
+    qr_id = payment.transaction_ref
+    if not str(qr_id).startswith("qr_"):
+        raise HTTPException(status_code=400, detail="Payment is not linked to a UPI QR code")
+
+    for item in fetch_upi_qr_payments(qr_id):
+        status = str(item.get("status") or "").lower()
+        pay_id = item.get("id")
+        if pay_id and status in ("captured", "authorized"):
+            payment.status = "Completed"
+            payment.transaction_ref = pay_id
+            payment.completed_at = utcnow()
+            write_audit(
+                db,
+                user="Razorpay",
+                role="System",
+                action=f"UPI QR payment {payment.payment_id} completed ({pay_id})",
+                patient_id=payment.patient_id,
+                agent="Razorpay",
+            )
+            db.commit()
+            db.refresh(payment)
+            return payment
+
+    return payment
+
+
 @router.post("/payments/razorpay/verify", response_model=PaymentOut)
 def verify_razorpay_payment(body: VerifyRazorpayPaymentIn, db: Session = Depends(get_db)):
     payment = db.get(Payment, body.payment_id)
@@ -205,6 +318,36 @@ async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
 
     payload = json.loads(body.decode("utf-8"))
     event = payload.get("event")
+
+    if event == "qr_code.credited":
+        qr_entity = (((payload.get("payload") or {}).get("qr_code") or {}).get("entity")) or {}
+        pay_entity = (((payload.get("payload") or {}).get("payment") or {}).get("entity")) or {}
+        qr_id = qr_entity.get("id")
+        razorpay_payment_id = pay_entity.get("id")
+        notes = qr_entity.get("notes") or pay_entity.get("notes") or {}
+        local_id = notes.get("payment_id")
+
+        payment = None
+        if local_id:
+            payment = db.get(Payment, local_id)
+        if payment is None and qr_id:
+            payment = db.scalar(select(Payment).where(Payment.transaction_ref == qr_id))
+
+        if payment and payment.status != "Completed" and razorpay_payment_id:
+            payment.status = "Completed"
+            payment.transaction_ref = razorpay_payment_id
+            payment.completed_at = utcnow()
+            write_audit(
+                db,
+                user="Razorpay",
+                role="System",
+                action=f"Webhook UPI QR credited {payment.payment_id} ({razorpay_payment_id})",
+                patient_id=payment.patient_id,
+                agent="Razorpay",
+            )
+            db.commit()
+        return {"ok": True, "event": event}
+
     if event != "payment.captured":
         return {"ok": True, "ignored": event}
 

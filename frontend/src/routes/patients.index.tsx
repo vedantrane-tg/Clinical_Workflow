@@ -77,7 +77,7 @@ function PatientsPage() {
   return (
     <>
       <PageHeader
-        title="Patients"
+        title="Patients Information"
         description="Patient roster. Reception can register walk-ins; doctors open records for consults."
         actions={
           can("registerPatient") ? (
@@ -176,9 +176,9 @@ function PatientsPage() {
                         <TableCell className="font-medium">{p.name}</TableCell>
                         <TableCell className="whitespace-nowrap text-muted-foreground">
                           {p.age} ·{" "}
-                          {p.gender === "Male" || p.gender === "M"
+                          {p.gender === "Male"
                             ? "M"
-                            : p.gender === "Female" || p.gender === "F"
+                            : p.gender === "Female"
                               ? "F"
                               : p.gender || "—"}
 

@@ -17,6 +17,8 @@ from app.schemas.payment import (
     RazorpayOrderOut,
     VerifyRazorpayPaymentIn,
     RazorpayConfigOut,
+    CreateUpiQrIn,
+    UpiQrOut,
 )
 from app.schemas.queue import QueuePatientOut, DoctorQueueOut
 from app.schemas.encounter import EncounterOut, CdsRequest, FinalizeEncounterIn

@@ -62,3 +62,23 @@ class VerifyRazorpayPaymentIn(BaseModel):
 class RazorpayConfigOut(BaseModel):
     enabled: bool
     key_id: str | None = None
+
+
+class CreateUpiQrIn(BaseModel):
+    patient_id: str
+    amount: float = Field(gt=0)
+    payment_type: str = "Consultation"
+    encounter_id: str | None = None
+    actor_name: str = "Receptionist"
+    actor_role: str = "Receptionist"
+
+
+class UpiQrOut(BaseModel):
+    payment_id: str
+    qr_id: str
+    image_url: str
+    amount: float
+    amount_paise: int
+    currency: str
+    patient_id: str
+    status: str

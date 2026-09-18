@@ -356,6 +356,38 @@ export const clinicalApi = {
     });
   },
 
+  /** POST /payments/razorpay/upi-qr */
+  createUpiQr(input: {
+    patient_id: string;
+    amount: number;
+    payment_type?: string;
+    encounter_id?: string | null;
+    actor_name?: string;
+    actor_role?: string;
+  }): Promise<{
+    payment_id: string;
+    qr_id: string;
+    image_url: string;
+    amount: number;
+    amount_paise: number;
+    currency: string;
+    patient_id: string;
+    status: string;
+  }> {
+    return apiFetch(ENDPOINTS.razorpayUpiQr, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+
+  /** POST /payments/razorpay/upi-qr/{id}/sync */
+  syncUpiQrPayment(paymentId: string): Promise<Payment> {
+    return apiFetch<Payment>(ENDPOINTS.razorpayUpiQrSync(paymentId), {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  },
+
   /** GET /queue?doctor_id= */
   getDoctorQueue(doctorId: string): Promise<QueuePatient[]> {
     return apiFetch<QueuePatient[]>(`${ENDPOINTS.queue}?doctor_id=${encodeURIComponent(doctorId)}`);

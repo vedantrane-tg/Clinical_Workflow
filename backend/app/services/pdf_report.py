@@ -8,8 +8,9 @@ from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Tabl
 
 HOSPITAL_NAME = "teleGlobal Clinic"
 LOGO_CANDIDATES = [
+    Path(__file__).resolve().parents[2] / "assets" / "tele-logo.png",
     Path(__file__).resolve().parents[2] / "assets" / "teleglobals_logo.jpg",
-    Path(__file__).resolve().parents[3] / "frontend" / "public" / "teleglobals_logo.jpg",
+    Path(__file__).resolve().parents[3] / "frontend" / "public" / "tele-logo.webp",
 ]
 
 
@@ -86,10 +87,11 @@ def _clinic_header(styles) -> list:
     ]
 
     if logo_path is not None:
-        logo = Image(str(logo_path), width=18 * mm, height=18 * mm)
+        # Wide brand mark — keep aspect ratio, cap height
+        logo = Image(str(logo_path), width=48 * mm, height=13.5 * mm)
         header = Table(
             [[logo, name_block]],
-            colWidths=[22 * mm, 158 * mm],
+            colWidths=[52 * mm, 128 * mm],
         )
         header.setStyle(
             TableStyle(

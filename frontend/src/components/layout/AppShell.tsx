@@ -45,7 +45,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <AppSidebar />
             </SheetContent>
           </Sheet>
-          <span className="text-sm font-semibold">ClinicalFlow AI</span>
+          <span className="text-sm font-semibold">ClinicalFlow</span>
         </div>
         <TopHeader />
         <main className="flex-1 px-4 py-6 lg:px-8">

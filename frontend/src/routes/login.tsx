@@ -9,8 +9,8 @@ import { useSession } from "@/hooks/useSession";
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
-      { title: "Login — ClinicalFlow AI" },
-      { name: "description", content: "Sign in to ClinicalFlow AI." },
+      { title: "Login — ClinicalFlow" },
+      { name: "description", content: "Sign in to ClinicalFlow." },
     ],
   }),
   component: LoginPage,
@@ -56,21 +56,21 @@ function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-card">
+      <div className="w-full max-w-md rounded-xl border border-border bg-[#102844] p-6 shadow-card">
         <div className="mb-6 flex flex-col items-center text-center">
           <img
-            src="/teleglobals_logo.jpg"
+            src="/tele-logo.webp"
             alt="teleGlobal"
-            className="mb-3 size-16 rounded-full object-cover shadow-sm ring-1 ring-border"
+            className="mb-4 h-11 w-auto max-w-[220px] object-contain"
           />
-          <h1 className="text-xl font-semibold text-foreground">ClinicalFlow AI</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Agentic Clinical Workflow</p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground/80">Powered by teleGlobal</p>
+          <h1 className="text-xl font-semibold tracking-tight text-white">ClinicalFlow</h1>
         </div>
 
         <form className="space-y-4" onSubmit={(e) => void onSubmit(e)}>
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email" className="text-slate-200">
+              Email
+            </Label>
             <Input
               id="email"
               type="email"
@@ -78,10 +78,13 @@ function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              className="border-white/15 bg-[#0b1f3a] text-white placeholder:text-slate-400"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password" className="text-slate-200">
+              Password
+            </Label>
             <Input
               id="password"
               type="password"
@@ -90,6 +93,7 @@ function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
+              className="border-white/15 bg-[#0b1f3a] text-white placeholder:text-slate-400"
             />
           </div>
           <Button type="submit" className="w-full" disabled={busy}>
@@ -98,9 +102,9 @@ function LoginPage() {
         </form>
 
         <div className="my-4 flex items-center gap-3">
-          <div className="h-px flex-1 bg-border" />
-          <span className="text-xs text-muted-foreground">Demo</span>
-          <div className="h-px flex-1 bg-border" />
+          <div className="h-px flex-1 bg-white/15" />
+          <span className="text-xs text-slate-400">Demo</span>
+          <div className="h-px flex-1 bg-white/15" />
         </div>
 
         <div className="grid gap-2 sm:grid-cols-2">
@@ -109,6 +113,7 @@ function LoginPage() {
             variant="outline"
             disabled={busy}
             onClick={() => void quickLogin("receptionist")}
+            className="border-white/20 bg-transparent text-slate-100 hover:bg-white/10 hover:text-white"
           >
             Receptionist
           </Button>
@@ -117,14 +122,15 @@ function LoginPage() {
             variant="outline"
             disabled={busy}
             onClick={() => void quickLogin("doctor")}
+            className="border-white/20 bg-transparent text-slate-100 hover:bg-white/10 hover:text-white"
           >
             Doctor
           </Button>
         </div>
 
-        <p className="mt-5 text-center text-sm text-muted-foreground">
+        <p className="mt-5 text-center text-sm text-slate-400">
           Don&apos;t have an account?{" "}
-          <Link to="/signup" className="font-medium text-primary hover:underline">
+          <Link to="/signup" className="font-medium text-sky-300 hover:underline">
             Sign up
           </Link>
         </p>

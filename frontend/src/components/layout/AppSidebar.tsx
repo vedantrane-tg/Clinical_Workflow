@@ -51,17 +51,21 @@ export function AppSidebar() {
 
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col bg-sidebar text-sidebar-foreground">
-      <div className="flex items-center gap-2.5 border-b border-sidebar-border px-5 py-4">
-        <img
-          src="/teleglobals_logo.jpg"
-          alt="teleGlobal"
-          className="size-9 shrink-0 rounded-full object-cover ring-1 ring-sidebar-border"
-        />
-        <div className="min-w-0 leading-tight">
-          <p className="text-sm font-semibold text-sidebar-accent-foreground">ClinicalFlow AI</p>
-          <p className="truncate text-[11px] text-sidebar-foreground/70">
-            {user?.role === "Doctor" ? "Doctor workspace" : "Reception desk"}
-          </p>
+      <div className="border-b border-sidebar-border px-4 py-4">
+        <div className="rounded-lg bg-sidebar-accent/50 px-3 py-3">
+          <img
+            src="/tele-logo.webp"
+            alt="teleGlobal"
+            className="h-8 w-full max-w-[180px] object-contain object-left"
+          />
+          <div className="mt-3 border-t border-sidebar-border/80 pt-2.5">
+            <p className="text-[15px] font-semibold tracking-tight text-sidebar-accent-foreground">
+              ClinicalFlow
+            </p>
+            <p className="mt-0.5 text-[11px] text-sidebar-foreground/65">
+              {user?.role === "Doctor" ? "Doctor workspace" : "Reception desk"}
+            </p>
+          </div>
         </div>
       </div>
 

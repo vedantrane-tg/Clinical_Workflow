@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   patientQuery,
   specialistsQuery,
+  useConsultationFeeQuote,
   useCreatePayment,
   useCreateRazorpayOrder,
   useCreateUpiQr,
@@ -26,14 +27,13 @@ import type { Payment } from "@/types/clinical";
 export const Route = createFileRoute("/receptionist/checkout/$patientId")({
   head: ({ params }) => ({
     meta: [
-      { title: `Checkout ${params.patientId} — ClinicalFlow AI` },
+      { title: `Checkout ${params.patientId} — ClinicalFlow` },
       { name: "description", content: "Process consultation payment after triage." },
     ],
   }),
   component: CheckoutPage,
 });
 
-const CONSULTATION_FEE = 500;
 const METHODS = ["Cash", "Card", "UPI", "Insurance"] as const;
 
 type UpiQrSession = {
@@ -46,6 +46,7 @@ function CheckoutPage() {
   const { patientId } = Route.useParams();
   const { user, can } = useSession();
   const { data: patient, isLoading } = useQuery(patientQuery(patientId));
+  const { data: feeQuote, isLoading: feeLoading } = useConsultationFeeQuote(patientId);
   const { data: specialists = [] } = useQuery(specialistsQuery());
   const { data: razorpayConfig, isLoading: razorpayLoading } = useRazorpayConfig();
   const createPayment = useCreatePayment();
@@ -57,6 +58,9 @@ function CheckoutPage() {
   const [receipt, setReceipt] = useState<Payment | null>(null);
   const [upiQr, setUpiQr] = useState<UpiQrSession | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const feeAmount = feeQuote?.amount ?? 500;
+  const feeLabel = feeQuote?.label ?? "Consultation";
 
   const doctorName = useMemo(() => {
     if (!patient?.assigned_doctor_id) return null;
@@ -95,7 +99,7 @@ function CheckoutPage() {
     return <Navigate to="/" />;
   }
 
-  if (isLoading || razorpayLoading) {
+  if (isLoading || razorpayLoading || feeLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-64" />
@@ -118,8 +122,6 @@ function CheckoutPage() {
   async function processManualPayment() {
     const payment = await createPayment.mutateAsync({
       patient_id: patientId,
-      amount: CONSULTATION_FEE,
-      payment_type: "Consultation",
       payment_method: method,
       actor_name: user?.name ?? "Receptionist",
       actor_role: user?.role ?? "Receptionist",
@@ -136,8 +138,6 @@ function CheckoutPage() {
 
     const order = await createOrder.mutateAsync({
       patient_id: patientId,
-      amount: CONSULTATION_FEE,
-      payment_type: "Consultation",
       payment_method: "Card",
       actor_name: user?.name ?? "Receptionist",
       actor_role: user?.role ?? "Receptionist",
@@ -147,8 +147,8 @@ function CheckoutPage() {
       key: order.key_id,
       amount: order.amount_paise,
       currency: order.currency,
-      name: "ClinicalFlow AI",
-      description: `Consultation fee · ${patient.name}`,
+      name: "teleGlobal Clinic",
+      description: `${feeLabel} · ${patient.name}`,
       order_id: order.order_id,
       prefill: { name: patient.name },
       notes: {
@@ -195,8 +195,6 @@ function CheckoutPage() {
     }
     const qr = await createUpiQr.mutateAsync({
       patient_id: patientId,
-      amount: CONSULTATION_FEE,
-      payment_type: "Consultation",
       actor_name: user?.name ?? "Receptionist",
       actor_role: user?.role ?? "Receptionist",
     });
@@ -274,13 +272,16 @@ function CheckoutPage() {
         </Card>
 
         <Card className="shadow-card">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-base">Fee breakdown</CardTitle>
+            <Pill tone={feeQuote?.is_follow_up ? "info" : "warning"}>
+              {feeQuote?.is_follow_up ? "Follow-up · ₹250" : "New visit · ₹500"}
+            </Pill>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Consultation</span>
-              <span>₹{CONSULTATION_FEE.toFixed(2)}</span>
+              <span className="text-muted-foreground">{feeLabel}</span>
+              <span>₹{feeAmount.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Tax</span>
@@ -288,8 +289,18 @@ function CheckoutPage() {
             </div>
             <div className="flex justify-between border-t border-border pt-3 text-base font-semibold">
               <span>Total</span>
-              <span>₹{CONSULTATION_FEE.toFixed(2)}</span>
+              <span>₹{feeAmount.toFixed(2)}</span>
             </div>
+            {feeQuote ? (
+              <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                {feeQuote.is_follow_up
+                  ? `Follow-up rate applies when the last paid visit was within ${feeQuote.follow_up_window_months} months.`
+                  : `Standard consultation fee. Follow-up (₹${feeQuote.follow_up_fee}) applies only within ${feeQuote.follow_up_window_months} months of the last paid visit.`}
+                {feeQuote.last_visit_at
+                  ? ` Last visit: ${new Date(feeQuote.last_visit_at).toLocaleDateString()}.`
+                  : " No previous paid visit on record."}
+              </p>
+            ) : null}
           </CardContent>
         </Card>
       </div>

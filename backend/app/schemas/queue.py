@@ -15,6 +15,7 @@ class QueuePatientOut(BaseModel):
     checked_in_at: datetime | None = None
     risk: str
     acuity_hint: str | None = None
+    contact_phone: str | None = None
 
 
 class DoctorQueueOut(BaseModel):

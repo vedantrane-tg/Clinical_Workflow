@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   ClipboardPlus,
   Clock3,
+  MessageCircle,
   Send,
   Stethoscope,
   Users,
@@ -76,6 +77,16 @@ function formatWaitDuration(checkedInAt: string | null): string {
 
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${hours}:${pad(minutes)}:${pad(seconds)}`;
+}
+
+function whatsappHref(phone: string | null | undefined, patientName: string): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 8) return null;
+  const text = encodeURIComponent(
+    `Hello ${patientName}, this is ClinicalFlow reception regarding your clinic visit.`,
+  );
+  return `https://wa.me/${digits}?text=${text}`;
 }
 
 function Dashboard() {
@@ -194,6 +205,7 @@ let today = date.toLocaleDateString();
                   <TableHead>Doctor</TableHead>
                   <TableHead>Wait</TableHead>
                   <TableHead>Severity</TableHead>
+                  <TableHead>Contact</TableHead>
                   <TableHead className="text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
@@ -218,6 +230,27 @@ let today = date.toLocaleDateString();
                         <AcuityBadge level={row.acuity_hint} />
                       ) : (
                         <SeverityBadge severity={(row.risk as "High" | "Medium" | "Low") || "Low"} />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {row.contact_phone ? (
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs">{row.contact_phone}</span>
+                          {whatsappHref(row.contact_phone, row.name) ? (
+                            <a
+                              href={whatsappHref(row.contact_phone, row.name)!}
+                              target="_blank"
+                              rel="noreferrer"
+                              aria-label={`WhatsApp ${row.name}`}
+                              className="inline-flex size-7 items-center justify-center rounded-md text-emerald-600 hover:bg-emerald-50"
+                              title="Open WhatsApp"
+                            >
+                              <MessageCircle className="size-4" />
+                            </a>
+                          ) : null}
+                        </div>
+                      ) : (
+                        "—"
                       )}
                     </TableCell>
                     <TableCell className="text-right">

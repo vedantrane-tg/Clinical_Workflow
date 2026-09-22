@@ -38,6 +38,7 @@ export const ENDPOINTS = {
   encounterPrescriptionPdf: (id: string) => `/encounters/${id}/prescription/pdf`,
   payments: "/payments",
   payment: (id: string) => `/payments/${id}`,
+  paymentFeeQuote: (patientId: string) => `/payments/fee-quote/${patientId}`,
   razorpayConfig: "/payments/razorpay/config",
   razorpayOrder: "/payments/razorpay/order",
   razorpayVerify: "/payments/razorpay/verify",

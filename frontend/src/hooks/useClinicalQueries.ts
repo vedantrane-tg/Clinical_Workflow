@@ -140,6 +140,14 @@ export function useCheckinPatient(patientId: string) {
   });
 }
 
+export function useConsultationFeeQuote(patientId: string) {
+  return useQuery({
+    queryKey: ["payments", "fee-quote", patientId] as const,
+    queryFn: () => clinicalApi.getConsultationFeeQuote(patientId),
+    enabled: Boolean(patientId),
+  });
+}
+
 export function useCreatePayment() {
   const queryClient = useQueryClient();
   return useMutation({

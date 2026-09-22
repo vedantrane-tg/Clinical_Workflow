@@ -10,6 +10,7 @@ from app.database import get_db
 from app.models import Patient, Payment
 from app.schemas import CreatePaymentIn, PaymentOut
 from app.schemas.payment import (
+    ConsultationFeeQuoteOut,
     CreateRazorpayOrderIn,
     CreateUpiQrIn,
     RazorpayConfigOut,
@@ -17,6 +18,7 @@ from app.schemas.payment import (
     UpiQrOut,
     VerifyRazorpayPaymentIn,
 )
+from app.services.fees import quote_consultation_fee
 from app.services.ids import next_payment_id, utcnow, write_audit
 from app.services.razorpay_service import (
     amount_to_paise,
@@ -33,12 +35,47 @@ MANUAL_METHODS = {"Cash", "Insurance"}
 RAZORPAY_METHODS = {"Card", "UPI"}
 
 
+def _resolve_visit_fee(
+    db: Session,
+    *,
+    patient_id: str,
+    amount: float | None,
+    payment_type: str | None,
+) -> tuple[float, str]:
+    """For consultation/follow-up, always use server fee rules. Lab/Procedure keep client values."""
+    requested_type = payment_type or "Consultation"
+    if requested_type in ("Lab", "Procedure"):
+        if amount is None:
+            raise HTTPException(status_code=400, detail="amount is required for Lab/Procedure")
+        return float(amount), requested_type
+
+    quote = quote_consultation_fee(db, patient_id)
+    return quote.amount, quote.payment_type
+
+
 @router.get("/payments/razorpay/config", response_model=RazorpayConfigOut)
 def razorpay_config():
     settings = get_settings()
     return RazorpayConfigOut(
         enabled=settings.razorpay_enabled,
         key_id=settings.razorpay_key_id if settings.razorpay_enabled else None,
+    )
+
+
+@router.get("/payments/fee-quote/{patient_id}", response_model=ConsultationFeeQuoteOut)
+def get_fee_quote(patient_id: str, db: Session = Depends(get_db)):
+    patient = db.get(Patient, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
+    quote = quote_consultation_fee(db, patient_id)
+    return ConsultationFeeQuoteOut(
+        patient_id=patient_id,
+        amount=quote.amount,
+        payment_type=quote.payment_type,
+        is_follow_up=quote.is_follow_up,
+        label=quote.label,
+        last_visit_at=quote.last_visit_at,
+        reason=quote.reason,
     )
 
 
@@ -55,7 +92,13 @@ def create_payment(body: CreatePaymentIn, db: Session = Depends(get_db)):
             detail="Card/UPI must use /payments/razorpay/order. Use Cash or Insurance here.",
         )
 
-    if body.payment_type not in ("Consultation", "Follow-up", "Lab", "Procedure"):
+    amount, payment_type = _resolve_visit_fee(
+        db,
+        patient_id=body.patient_id,
+        amount=body.amount,
+        payment_type=body.payment_type,
+    )
+    if payment_type not in ("Consultation", "Follow-up", "Lab", "Procedure"):
         raise HTTPException(status_code=400, detail="Invalid payment_type")
 
     now = utcnow()
@@ -63,9 +106,9 @@ def create_payment(body: CreatePaymentIn, db: Session = Depends(get_db)):
         payment_id=next_payment_id(db),
         patient_id=body.patient_id,
         encounter_id=body.encounter_id,
-        amount=body.amount,
+        amount=amount,
         currency="INR",
-        payment_type=body.payment_type,
+        payment_type=payment_type,
         payment_method=body.payment_method,
         status="Completed",
         transaction_ref=f"manual-{uuid.uuid4()}",
@@ -80,7 +123,7 @@ def create_payment(body: CreatePaymentIn, db: Session = Depends(get_db)):
         role=body.actor_role,
         action=(
             f"Payment {payment.payment_id} completed: "
-            f"₹{payment.amount} via {payment.payment_method}"
+            f"₹{payment.amount} ({payment.payment_type}) via {payment.payment_method}"
         ),
         patient_id=body.patient_id,
     )
@@ -106,17 +149,24 @@ def create_razorpay_payment_order(body: CreateRazorpayOrderIn, db: Session = Dep
     if body.payment_method not in RAZORPAY_METHODS:
         raise HTTPException(status_code=400, detail="payment_method must be Card or UPI for Razorpay")
 
-    if body.payment_type not in ("Consultation", "Follow-up", "Lab", "Procedure"):
+    amount, payment_type = _resolve_visit_fee(
+        db,
+        patient_id=body.patient_id,
+        amount=body.amount,
+        payment_type=body.payment_type,
+    )
+    if payment_type not in ("Consultation", "Follow-up", "Lab", "Procedure"):
         raise HTTPException(status_code=400, detail="Invalid payment_type")
 
     payment_id = next_payment_id(db)
     order = create_razorpay_order(
-        amount_inr=body.amount,
+        amount_inr=amount,
         receipt=payment_id,
         notes={
             "payment_id": payment_id,
             "patient_id": body.patient_id,
             "payment_method": body.payment_method,
+            "payment_type": payment_type,
             "actor_name": body.actor_name,
         },
     )
@@ -126,9 +176,9 @@ def create_razorpay_payment_order(body: CreateRazorpayOrderIn, db: Session = Dep
         payment_id=payment_id,
         patient_id=body.patient_id,
         encounter_id=body.encounter_id,
-        amount=body.amount,
+        amount=amount,
         currency="INR",
-        payment_type=body.payment_type,
+        payment_type=payment_type,
         payment_method=body.payment_method,
         status="Pending",
         transaction_ref=order["id"],
@@ -141,7 +191,7 @@ def create_razorpay_payment_order(body: CreateRazorpayOrderIn, db: Session = Dep
         db,
         user=body.actor_name,
         role=body.actor_role,
-        action=f"Razorpay order created for {payment_id} ({order['id']})",
+        action=f"Razorpay order created for {payment_id} ({order['id']}) · ₹{amount} {payment_type}",
         patient_id=body.patient_id,
         agent="Razorpay",
         result="Info",
@@ -176,18 +226,26 @@ def create_upi_qr_payment(body: CreateUpiQrIn, db: Session = Depends(get_db)):
     if not patient:
         raise HTTPException(status_code=404, detail=f"Patient {body.patient_id} not found")
 
-    if body.payment_type not in ("Consultation", "Follow-up", "Lab", "Procedure"):
+    amount, payment_type = _resolve_visit_fee(
+        db,
+        patient_id=body.patient_id,
+        amount=body.amount,
+        payment_type=body.payment_type,
+    )
+    if payment_type not in ("Consultation", "Follow-up", "Lab", "Procedure"):
         raise HTTPException(status_code=400, detail="Invalid payment_type")
 
     payment_id = next_payment_id(db)
+    fee_label = "Follow-up fee" if payment_type == "Follow-up" else "Consultation fee"
     qr = create_upi_qr(
-        amount_inr=body.amount,
-        name="ClinicalFlow AI",
-        description=f"Consultation fee · {patient.name}",
+        amount_inr=amount,
+        name="teleGlobal Clinic",
+        description=f"{fee_label} · {patient.name}",
         notes={
             "payment_id": payment_id,
             "patient_id": body.patient_id,
             "payment_method": "UPI",
+            "payment_type": payment_type,
             "actor_name": body.actor_name,
         },
     )
@@ -200,9 +258,9 @@ def create_upi_qr_payment(body: CreateUpiQrIn, db: Session = Depends(get_db)):
         payment_id=payment_id,
         patient_id=body.patient_id,
         encounter_id=body.encounter_id,
-        amount=body.amount,
+        amount=amount,
         currency="INR",
-        payment_type=body.payment_type,
+        payment_type=payment_type,
         payment_method="UPI",
         status="Pending",
         transaction_ref=qr["id"],
@@ -214,7 +272,7 @@ def create_upi_qr_payment(body: CreateUpiQrIn, db: Session = Depends(get_db)):
         db,
         user=body.actor_name,
         role=body.actor_role,
-        action=f"UPI QR created for {payment_id} ({qr['id']})",
+        action=f"UPI QR created for {payment_id} ({qr['id']}) · ₹{amount} {payment_type}",
         patient_id=body.patient_id,
         agent="Razorpay",
         result="Info",

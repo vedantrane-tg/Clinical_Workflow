@@ -263,6 +263,7 @@ export interface QueuePatient {
   checked_in_at: string | null;
   risk: string;
   acuity_hint: string | null;
+  contact_phone: string | null;
 }
 
 export interface DoctorQueue {

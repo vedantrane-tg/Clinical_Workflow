@@ -21,6 +21,7 @@ def _to_queue_patient(p: Patient) -> QueuePatientOut:
         queue_position=p.queue_position,
         checked_in_at=p.checked_in_at,
         risk=p.risk,
+        contact_phone=p.contact_phone,
     )
 
 

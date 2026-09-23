@@ -5,8 +5,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class CreatePaymentIn(BaseModel):
     patient_id: str
-    amount: float = Field(gt=0)
-    payment_type: str = "Consultation"  # Consultation | Follow-up | Lab | Procedure
+    # Optional — server calculates consultation/follow-up fee when omitted.
+    amount: float | None = Field(default=None, gt=0)
+    payment_type: str | None = None  # Consultation | Follow-up | Lab | Procedure
     payment_method: str  # Cash | Card | UPI | Insurance
     encounter_id: str | None = None
     actor_name: str = "Receptionist"
@@ -29,10 +30,24 @@ class PaymentOut(BaseModel):
     completed_at: datetime | None = None
 
 
+class ConsultationFeeQuoteOut(BaseModel):
+    patient_id: str
+    amount: float
+    payment_type: str
+    is_follow_up: bool
+    label: str
+    last_visit_at: datetime | None = None
+    reason: str
+    currency: str = "INR"
+    new_consultation_fee: float = 500
+    follow_up_fee: float = 250
+    follow_up_window_months: int = 4
+
+
 class CreateRazorpayOrderIn(BaseModel):
     patient_id: str
-    amount: float = Field(gt=0)
-    payment_type: str = "Consultation"
+    amount: float | None = Field(default=None, gt=0)
+    payment_type: str | None = None
     payment_method: str  # Card | UPI
     encounter_id: str | None = None
     actor_name: str = "Receptionist"
@@ -66,8 +81,8 @@ class RazorpayConfigOut(BaseModel):
 
 class CreateUpiQrIn(BaseModel):
     patient_id: str
-    amount: float = Field(gt=0)
-    payment_type: str = "Consultation"
+    amount: float | None = Field(default=None, gt=0)
+    payment_type: str | None = None
     encounter_id: str | None = None
     actor_name: str = "Receptionist"
     actor_role: str = "Receptionist"

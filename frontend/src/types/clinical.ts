@@ -251,6 +251,20 @@ export interface Payment {
   completed_at: string | null;
 }
 
+export interface ConsultationFeeQuote {
+  patient_id: string;
+  amount: number;
+  payment_type: string;
+  is_follow_up: boolean;
+  label: string;
+  last_visit_at: string | null;
+  reason: string;
+  currency: string;
+  new_consultation_fee: number;
+  follow_up_fee: number;
+  follow_up_window_months: number;
+}
+
 export interface QueuePatient {
   patient_id: string;
   name: string;

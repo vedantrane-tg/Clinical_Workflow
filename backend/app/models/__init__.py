@@ -11,6 +11,22 @@ from app.models.user import User
 from app.models.triage_result import TriageResult
 from app.models.payment import Payment
 from app.models.encounter import Encounter
+from app.models.appointment import Appointment
 
 
-__all__ = ["Patient", "Specialist", "ReferralRule", "Referral", "AuditEntry", "WorkflowExecution", "ExtractedEHR", "ClinicalSummary", "Consultation", "User", "TriageResult", "Payment", "Encounter"]
+__all__ = [
+    "Patient",
+    "Specialist",
+    "ReferralRule",
+    "Referral",
+    "AuditEntry",
+    "WorkflowExecution",
+    "ExtractedEHR",
+    "ClinicalSummary",
+    "Consultation",
+    "User",
+    "TriageResult",
+    "Payment",
+    "Encounter",
+    "Appointment",
+]

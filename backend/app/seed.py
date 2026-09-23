@@ -183,30 +183,126 @@ def seed_audit(db: Session) -> None:
 
 
 def seed_users(db: Session) -> None:
-    if db.scalar(select(User).limit(1)) is not None:
+    if db.scalar(select(User).limit(1)) is None:
+        users = [
+            User(
+                user_id="USR-0001",
+                full_name="Ananya Deshmukh",
+                email="ananya@clinicalflow.demo",
+                hashed_password=hash_password("receptionist123"),
+                role="Receptionist",
+                specialty=None,
+                is_active=True,
+                created_at=utcnow(),
+            ),
+            User(
+                user_id="USR-0002",
+                full_name="Dr. Neha Kapoor",
+                email="neha@clinicalflow.demo",
+                hashed_password=hash_password("doctor123"),
+                role="Doctor",
+                specialty="General Medicine",
+                is_active=True,
+                created_at=utcnow(),
+            ),
+            User(
+                user_id="USR-0003",
+                full_name="Dr. Vikram Rao",
+                email="vikram@clinicalflow.demo",
+                hashed_password=hash_password("doctor123"),
+                role="Doctor",
+                specialty="General Medicine",
+                is_active=True,
+                created_at=utcnow(),
+            ),
+        ]
+        db.add_all(users)
+        db.commit()
+    elif db.get(User, "USR-0003") is None and db.scalar(
+        select(User).where(User.email == "vikram@clinicalflow.demo")
+    ) is None:
+        db.add(
+            User(
+                user_id="USR-0003",
+                full_name="Dr. Vikram Rao",
+                email="vikram@clinicalflow.demo",
+                hashed_password=hash_password("doctor123"),
+                role="Doctor",
+                specialty="General Medicine",
+                is_active=True,
+                created_at=utcnow(),
+            )
+        )
+        db.commit()
+
+
+def seed_appointments(db: Session) -> None:
+    from datetime import datetime, timedelta
+
+    from app.models import Appointment
+
+    if db.scalar(select(Appointment).limit(1)) is not None:
         return
 
-    users = [
-        User(
-            user_id="USR-0001",
-            full_name="Ananya Deshmukh",
-            email="ananya@clinicalflow.demo",
-            hashed_password=hash_password("receptionist123"),
-            role="Receptionist",
-            specialty=None,
-            is_active=True,
-            created_at=utcnow(),
+    doctor = db.scalar(select(User).where(User.role == "Doctor").limit(1))
+    patients = list(db.scalars(select(Patient).limit(2)).all())
+    if not doctor or len(patients) < 1:
+        return
+
+    now = datetime.now().replace(second=0, microsecond=0)
+    today_9 = now.replace(hour=9, minute=0)
+    today_11 = now.replace(hour=11, minute=30)
+    tomorrow_10 = (now + timedelta(days=1)).replace(hour=10, minute=0)
+    doctor2 = db.get(User, "USR-0003") or doctor
+    p1 = patients[0]
+    p2 = patients[min(1, len(patients) - 1)]
+
+    rows = [
+        Appointment(
+            appointment_id="APT-1001",
+            patient_id=p1.patient_id,
+            patient_name=p1.name,
+            doctor_id=doctor.user_id,
+            doctor_name=doctor.full_name,
+            starts_at=today_9,
+            duration_minutes=30,
+            visit_type="Follow-up",
+            reason="Diabetes review",
+            status="Scheduled",
+            notes="Bring latest labs",
+            created_at=now,
+            updated_at=now,
         ),
-        User(
-            user_id="USR-0002",
-            full_name="Dr. Neha Kapoor",
-            email="neha@clinicalflow.demo",
-            hashed_password=hash_password("doctor123"),
-            role="Doctor",
-            specialty="General Medicine",
-            is_active=True,
-            created_at=utcnow(),
+        Appointment(
+            appointment_id="APT-1002",
+            patient_id=p2.patient_id,
+            patient_name=p2.name,
+            doctor_id=doctor2.user_id,
+            doctor_name=doctor2.full_name,
+            starts_at=today_11,
+            duration_minutes=20,
+            visit_type="Consultation",
+            reason="Headache",
+            status="Scheduled",
+            notes=None,
+            created_at=now,
+            updated_at=now,
+        ),
+        Appointment(
+            appointment_id="APT-1003",
+            patient_id=p1.patient_id,
+            patient_name=p1.name,
+            doctor_id=doctor.user_id,
+            doctor_name=doctor.full_name,
+            starts_at=tomorrow_10,
+            duration_minutes=30,
+            visit_type="New Visit",
+            reason="Annual checkup",
+            status="Scheduled",
+            notes=None,
+            created_at=now,
+            updated_at=now,
         ),
     ]
-    db.add_all(users)
+    db.add_all(rows)
     db.commit()

@@ -6,13 +6,29 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import models  # noqa: F401
 from app.database import Base, SessionLocal, engine, ensure_schema
 
-from app.routers import patients, specialists, rules, referrals, audit, workflows, consultations, auth, triage, queue, payments
-from app.seed import seed_patients, seed_specialists, seed_referral_rules, seed_audit, seed_users
-from app.routers import (
-    patients, specialists, rules, referrals, audit, workflows,
-    consultations, auth, triage, queue, payments, encounters,
+from app.seed import (
+    seed_patients,
+    seed_specialists,
+    seed_referral_rules,
+    seed_audit,
+    seed_users,
+    seed_appointments,
 )
-
+from app.routers import (
+    patients,
+    specialists,
+    rules,
+    referrals,
+    audit,
+    workflows,
+    consultations,
+    auth,
+    triage,
+    queue,
+    payments,
+    encounters,
+    appointments,
+)
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     Base.metadata.create_all(bind=engine)
@@ -24,6 +40,7 @@ async def lifespan(_app: FastAPI):
         seed_specialists(db)
         seed_referral_rules(db)
         seed_audit(db)
+        seed_appointments(db)
     finally:
         db.close()
     yield
@@ -59,6 +76,7 @@ app.include_router(triage.router)
 app.include_router(queue.router)
 app.include_router(payments.router)
 app.include_router(encounters.router)
+app.include_router(appointments.router)
 
 @app.get("/health")
 def health():

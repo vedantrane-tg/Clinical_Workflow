@@ -19,6 +19,8 @@ export const qk = {
   queueDoctor: (id: string) => ["queue", "doctor", id] as const,
   triageLatest: (id: string) => ["patients", id, "triage", "latest"] as const,
   consultation: (id: string) => ["consultations", id] as const,
+  appointments: (rangeKey: string) => ["appointments", rangeKey] as const,
+  clinicDoctors: ["appointments", "doctors"] as const,
 };
 
 export const patientsQuery = () =>
@@ -122,7 +124,8 @@ export function useCreateReferral() {
 export function useCreatePatient() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: clinicalApi.createPatient.bind(clinicalApi),
+    mutationFn: (input: Parameters<typeof clinicalApi.createPatient>[0]) =>
+      clinicalApi.createPatient(input),
     onSuccess: (patient) => invalidateAll(queryClient, patient.patient_id),
   });
 }
@@ -228,6 +231,53 @@ export function useToggleRule(actor: { name: string; role: Role }) {
       clinicalApi.setRuleEnabled(ruleId, enabled, actor),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.rules });
+      queryClient.invalidateQueries({ queryKey: qk.audit });
+    },
+  });
+}
+
+export const clinicDoctorsQuery = () =>
+  queryOptions({
+    queryKey: qk.clinicDoctors,
+    queryFn: () => clinicalApi.listClinicDoctors(),
+    staleTime: 60_000,
+  });
+
+export const appointmentsQuery = (range: { from: string; to: string; doctor_id?: string }) =>
+  queryOptions({
+    queryKey: qk.appointments(`${range.from}|${range.to}|${range.doctor_id ?? "all"}`),
+    queryFn: () =>
+      clinicalApi.listAppointments({
+        from: range.from,
+        to: range.to,
+        doctor_id: range.doctor_id,
+      }),
+    refetchInterval: 30_000,
+  });
+
+export function useCreateAppointment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: clinicalApi.createAppointment.bind(clinicalApi),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: qk.audit });
+    },
+  });
+}
+
+export function useUpdateAppointment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      patch,
+    }: {
+      id: string;
+      patch: Parameters<typeof clinicalApi.updateAppointment>[1];
+    }) => clinicalApi.updateAppointment(id, patch),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
       queryClient.invalidateQueries({ queryKey: qk.audit });
     },
   });

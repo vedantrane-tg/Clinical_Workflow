@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Activity,
+  CalendarDays,
   ClipboardPlus,
   FileClock,
   LayoutDashboard,
@@ -24,6 +25,7 @@ type NavItem = {
 
 const RECEPTIONIST_NAV: NavItem[] = [
   { label: "Dashboard", to: "/", icon: LayoutDashboard, exact: true },
+  { label: "Calendar", to: "/calendar", icon: CalendarDays },
   { label: "Patients", to: "/patients", icon: Users },
   { label: "New Patient", to: "/receptionist/new-patient", icon: ClipboardPlus },
   { label: "Audit Trail", to: "/audit", icon: FileClock },
@@ -31,6 +33,7 @@ const RECEPTIONIST_NAV: NavItem[] = [
 
 const DOCTOR_NAV: NavItem[] = [
   { label: "Dashboard", to: "/", icon: LayoutDashboard, exact: true },
+  { label: "Calendar", to: "/calendar", icon: CalendarDays },
   { label: "Patients", to: "/patients", icon: Users },
   { label: "Workflow Monitor", to: "/workflows", icon: Activity },
   { label: "Referrals", to: "/referrals", icon: Send },

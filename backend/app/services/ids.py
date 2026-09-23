@@ -120,3 +120,10 @@ def next_patient_id(db: Session) -> str:
 
     count = len(db.scalars(select(Patient)).all())
     return f"PAT-{1001 + count}"
+
+
+def next_appointment_id(db: Session) -> str:
+    from app.models import Appointment
+
+    count = len(db.scalars(select(Appointment)).all())
+    return f"APT-{1001 + count}"

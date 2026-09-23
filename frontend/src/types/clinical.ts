@@ -345,3 +345,35 @@ export interface AgentServiceStatus {
   processing: number;
   failed: number;
 }
+
+export type AppointmentStatus =
+  | "Scheduled"
+  | "Checked In"
+  | "Completed"
+  | "Cancelled"
+  | "No Show";
+
+export type AppointmentVisitType = "Consultation" | "Follow-up" | "New Visit" | "Procedure";
+
+export interface ClinicDoctor {
+  doctor_id: string;
+  name: string;
+  specialty: string | null;
+  role: string;
+}
+
+export interface Appointment {
+  appointment_id: string;
+  patient_id: string;
+  patient_name: string;
+  doctor_id: string;
+  doctor_name: string;
+  starts_at: string;
+  duration_minutes: number;
+  visit_type: AppointmentVisitType | string;
+  reason: string | null;
+  status: AppointmentStatus | string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}

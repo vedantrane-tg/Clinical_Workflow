@@ -22,6 +22,12 @@ from app.schemas.payment import (
 )
 from app.schemas.queue import QueuePatientOut, DoctorQueueOut
 from app.schemas.encounter import EncounterOut, CdsRequest, FinalizeEncounterIn
+from app.schemas.appointment import (
+    AppointmentOut,
+    CreateAppointmentIn,
+    UpdateAppointmentIn,
+    DoctorOut,
+)
 
 __all__ = ["PatientOut", 
             "SpecialistOut",

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuditRouteImport } from './routes/audit'
+import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ReferralsRouteImport } from './routes/referrals'
 import { Route as RulesRouteImport } from './routes/rules'
@@ -34,6 +35,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuditRoute = AuditRouteImport.update({
   id: '/audit',
   path: '/audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CalendarRoute = CalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -113,6 +119,7 @@ const ReceptionistTriagePatientIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
+  '/calendar': typeof CalendarRoute
   '/login': typeof LoginRoute
   '/referrals': typeof ReferralsRoute
   '/rules': typeof RulesRoute
@@ -131,6 +138,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
+  '/calendar': typeof CalendarRoute
   '/login': typeof LoginRoute
   '/referrals': typeof ReferralsRoute
   '/rules': typeof RulesRoute
@@ -150,6 +158,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
+  '/calendar': typeof CalendarRoute
   '/login': typeof LoginRoute
   '/referrals': typeof ReferralsRoute
   '/rules': typeof RulesRoute
@@ -170,6 +179,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/audit'
+    | '/calendar'
     | '/login'
     | '/referrals'
     | '/rules'
@@ -188,6 +198,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/audit'
+    | '/calendar'
     | '/login'
     | '/referrals'
     | '/rules'
@@ -206,6 +217,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/audit'
+    | '/calendar'
     | '/login'
     | '/referrals'
     | '/rules'
@@ -225,6 +237,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuditRoute: typeof AuditRoute
+  CalendarRoute: typeof CalendarRoute
   LoginRoute: typeof LoginRoute
   ReferralsRoute: typeof ReferralsRoute
   RulesRoute: typeof RulesRoute
@@ -255,6 +268,13 @@ declare module '@tanstack/react-router' {
       path: '/audit'
       fullPath: '/audit'
       preLoaderRoute: typeof AuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/calendar': {
+      id: '/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof CalendarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -361,6 +381,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuditRoute: AuditRoute,
+  CalendarRoute: CalendarRoute,
   LoginRoute: LoginRoute,
   ReferralsRoute: ReferralsRoute,
   RulesRoute: RulesRoute,

@@ -17,6 +17,9 @@ import type {
   Consultation,
   Encounter,
   WorkflowExecution,
+  Appointment,
+  ClinicDoctor,
+  AppointmentStatus,
 } from "@/types/clinical";
 import { API_BASE_URL, ENDPOINTS } from "./config";
 
@@ -573,6 +576,68 @@ export const clinicalApi = {
         processing: steps.filter((s) => s.status === "Running").length,
         failed: steps.filter((s) => s.status === "Failed").length,
       };
+    });
+  },
+
+  /** GET /appointments/doctors */
+  listClinicDoctors(): Promise<ClinicDoctor[]> {
+    return apiFetch<ClinicDoctor[]>(ENDPOINTS.appointmentDoctors);
+  },
+
+  /** GET /appointments */
+  listAppointments(params?: {
+    from?: string;
+    to?: string;
+    doctor_id?: string;
+    status?: string;
+    patient_id?: string;
+  }): Promise<Appointment[]> {
+    const qs = new URLSearchParams();
+    if (params?.from) qs.set("from", params.from);
+    if (params?.to) qs.set("to", params.to);
+    if (params?.doctor_id) qs.set("doctor_id", params.doctor_id);
+    if (params?.status) qs.set("status", params.status);
+    if (params?.patient_id) qs.set("patient_id", params.patient_id);
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return apiFetch<Appointment[]>(`${ENDPOINTS.appointments}${suffix}`);
+  },
+
+  /** POST /appointments */
+  createAppointment(input: {
+    patient_id: string;
+    doctor_id: string;
+    starts_at: string;
+    duration_minutes?: number;
+    visit_type?: string;
+    reason?: string | null;
+    notes?: string | null;
+    actor_name: string;
+    actor_role: Role;
+  }): Promise<Appointment> {
+    return apiFetch<Appointment>(ENDPOINTS.appointments, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+
+  /** PATCH /appointments/{id} */
+  updateAppointment(
+    id: string,
+    patch: {
+      doctor_id?: string;
+      starts_at?: string;
+      duration_minutes?: number;
+      visit_type?: string;
+      reason?: string | null;
+      notes?: string | null;
+      status?: AppointmentStatus | string;
+      actor_name: string;
+      actor_role: Role;
+    },
+  ): Promise<Appointment> {
+    return apiFetch<Appointment>(ENDPOINTS.appointment(id), {
+      method: "PATCH",
+      body: JSON.stringify(patch),
     });
   },
 };

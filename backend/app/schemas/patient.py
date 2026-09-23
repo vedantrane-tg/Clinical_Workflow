@@ -103,30 +103,32 @@ class CreatePatientIn(BaseModel):
         if not raw:
             raise ValueError("Phone is required")
 
-        # Accept already-normalized E.164, or bare Indian 10-digit for older clients.
-        if raw.isdigit() and len(raw) == 10:
+        # Bare digits: only accept Indian 10-digit mobiles (auto +91).
+        if raw.isdigit():
+            if len(raw) != 10:
+                raise ValueError(
+                    "Enter a 10-digit Indian mobile, or include country code like +919876543210"
+                )
+            if not PHONE_RULES["91"].match(raw):
+                raise ValueError("Invalid Indian mobile number (must start with 6–9)")
             raw = f"+91{raw}"
-        if not raw.startswith("+"):
+        elif not raw.startswith("+"):
             raw = f"+{raw}"
 
         if not PHONE_E164_RE.match(raw):
             raise ValueError("Phone must include country code, e.g. +919876543210")
 
         digits = raw[1:]
-        matched_rule = False
         for dial, pattern in sorted(PHONE_RULES.items(), key=lambda item: -len(item[0])):
             if digits.startswith(dial):
                 national = digits[len(dial) :]
                 if not pattern.match(national):
                     raise ValueError(f"Invalid phone number for +{dial}")
-                matched_rule = True
-                break
+                return f"+{dial}{national}"
 
-        if not matched_rule and not (8 <= len(digits) <= 15):
-            raise ValueError("Phone number length is invalid")
-
-        return raw
-
+        raise ValueError(
+            "Unsupported country code. Use a supported code such as +91, +1, or +44"
+        )
     @field_validator("contact_email")
     @classmethod
     def validate_email(cls, value: str | None) -> str | None:

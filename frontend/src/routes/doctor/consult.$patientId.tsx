@@ -38,7 +38,7 @@ function ConsultationRoomPage() {
   const [consultation, setConsultation] = useState<Consultation | null>(null);
   const soapRef = useRef<HTMLDivElement | null>(null);
 
-  if (!can("recordConsultation")) {
+  if (!can("recordConsultation") && !can("viewClinic")) {
     return <Navigate to="/" />;
   }
 
@@ -140,7 +140,7 @@ function ConsultationRoomPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <AudioRecorder
-              disabled={uploadAndScribe.isPending}
+              disabled={!can("recordConsultation") || uploadAndScribe.isPending}
               onReady={(blob, name) => {
                 setPendingFile({ blob, name });
                 toast.message(`Audio ready: ${name}`);
@@ -153,7 +153,7 @@ function ConsultationRoomPage() {
             ) : null}
             <Button
               type="button"
-              disabled={!pendingFile || uploadAndScribe.isPending}
+              disabled={!can("recordConsultation") || !pendingFile || uploadAndScribe.isPending}
               onClick={() => void runScribe()}
             >
               {uploadAndScribe.isPending ? "Transcribing & scribing…" : "Stop & generate SOAP"}

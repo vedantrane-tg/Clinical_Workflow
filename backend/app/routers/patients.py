@@ -5,8 +5,10 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import require_admin
 from app.database import get_db
-from app.models import ClinicalSummary, ExtractedEHR, Patient
+from app.models import Appointment, ClinicalSummary, ExtractedEHR, Patient, User
+from app.schemas.patient import UpdatePatientIn
 
 from datetime import date
 from app.schemas import (
@@ -38,6 +40,54 @@ def get_patient(patient_id: str, db: Session = Depends(get_db)):
     if not patient:
         raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
     return patient
+
+
+def _compose_name(first: str | None, middle: str | None, last: str | None, fallback: str) -> str:
+    parts = [p.strip() for p in (first, middle, last) if p and p.strip()]
+    return " ".join(parts) if parts else fallback
+
+
+@router.patch("/patients/{patient_id}", response_model=PatientOut)
+def update_patient(
+    patient_id: str,
+    body: UpdatePatientIn,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    patient = db.get(Patient, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
+
+    data = body.model_dump(exclude_unset=True)
+    data.pop("actor_name", None)
+    data.pop("actor_role", None)
+
+    name_fields = {"first_name", "middle_name", "last_name"}
+    for key, value in data.items():
+        if key in name_fields or hasattr(patient, key):
+            setattr(patient, key, value)
+
+    if name_fields & data.keys():
+        patient.name = _compose_name(
+            patient.first_name,
+            patient.middle_name,
+            patient.last_name,
+            patient.name,
+        )
+        for appt in db.scalars(select(Appointment).where(Appointment.patient_id == patient.patient_id)).all():
+            appt.patient_name = patient.name
+
+    write_audit(
+        db,
+        user=admin.full_name,
+        role=admin.role,
+        action=f"Admin updated patient details for {patient.patient_id}",
+        patient_id=patient.patient_id,
+    )
+    db.commit()
+    db.refresh(patient)
+    return patient
+
 
 @router.post("/patients", response_model=PatientOut, status_code=201)
 def create_patient(body: CreatePatientIn, db: Session = Depends(get_db)):

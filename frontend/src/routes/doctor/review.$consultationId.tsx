@@ -107,7 +107,7 @@ function ClinicalOrdersPage() {
     };
   }, [consultation, encounter]);
 
-  if (!can("signEncounter")) {
+  if (!can("signEncounter") && !can("viewClinic")) {
     return <Navigate to="/" />;
   }
 
@@ -314,7 +314,7 @@ function ClinicalOrdersPage() {
               <PrescriptionEditor
                 rows={prescriptionRows}
                 onChange={setPrescriptionRows}
-                disabled={encounter.status === "Finalized"}
+                disabled={!can("signEncounter") || encounter.status === "Finalized"}
               />
               <div className="flex flex-wrap justify-end gap-2">
                 <Button asChild variant="outline">
@@ -331,7 +331,7 @@ function ClinicalOrdersPage() {
                 </Button>
                 <Button
                   type="button"
-                  disabled={finalizing || encounter.status === "Finalized" || !hasValidPrescription}
+                  disabled={!can("signEncounter") || finalizing || encounter.status === "Finalized" || !hasValidPrescription}
                   onClick={() => void finalize()}
                 >
                   {finalizing ? "Finalizing…" : "Sign & finalize encounter"}

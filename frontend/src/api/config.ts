@@ -18,6 +18,8 @@ export const ENDPOINTS = {
   authLogin: "/auth/login",
   authSignup: "/auth/signup",
   authMe: "/auth/me",
+  adminUsers: "/admin/users",
+  adminUser: (id: string) => `/admin/users/${id}`,
   patients: "/patients",
   patient: (id: string) => `/patients/${id}`,
   patientEhr: (id: string) => `/patients/${id}/ehr`,

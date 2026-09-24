@@ -31,7 +31,7 @@ export type SpecialistType =
   | "Other";
 
 // export type Role = "Clinician" | "Care Coordinator";
-export type Role = "Receptionist" | "Doctor";
+export type Role = "Admin" | "Receptionist" | "Doctor";
 
 export interface Condition {
   name: string;
@@ -336,6 +336,15 @@ export interface Encounter {
   finalized_at: string | null;
   finalized_by: string | null;
   created_at: string;
+}
+
+export interface StaffUser {
+  user_id: string;
+  full_name: string;
+  email: string;
+  role: "Receptionist" | "Doctor";
+  specialty: string | null;
+  is_active: boolean;
 }
 
 export interface AgentServiceStatus {

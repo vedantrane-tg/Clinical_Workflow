@@ -33,7 +33,7 @@ function TriageStationPage() {
   const [chiefComplaint, setChiefComplaint] = useState("");
   const [result, setResult] = useState<TriageResult | null>(null);
 
-  if (!can("runTriage")) {
+  if (!can("runTriage") && !can("viewClinic")) {
     return <Navigate to="/" />;
   }
 
@@ -106,7 +106,7 @@ function TriageStationPage() {
             </div>
             <Button
               type="button"
-              disabled={checkin.isPending}
+              disabled={!can("runTriage") || checkin.isPending}
               onClick={() => void runTriage()}
             >
               {checkin.isPending ? "Running Smart Triage…" : "Run Smart Triage"}

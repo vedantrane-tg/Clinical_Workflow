@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   LogOut,
   Send,
+  Shield,
   Stethoscope,
   UserRound,
   Users,
@@ -41,7 +42,19 @@ const DOCTOR_NAV: NavItem[] = [
   { label: "Audit Trail", to: "/audit", icon: FileClock },
 ];
 
+const ADMIN_NAV: NavItem[] = [
+  { label: "Dashboard", to: "/", icon: LayoutDashboard, exact: true },
+  { label: "Staff", to: "/admin/staff", icon: Shield },
+  { label: "Calendar", to: "/calendar", icon: CalendarDays },
+  { label: "Patients", to: "/patients", icon: Users },
+  { label: "Workflow Monitor", to: "/workflows", icon: Activity },
+  { label: "Referrals", to: "/referrals", icon: Send },
+  { label: "Specialists", to: "/specialists", icon: Stethoscope },
+  { label: "Audit Trail", to: "/audit", icon: FileClock },
+];
+
 function navForRole(role: Role | undefined): NavItem[] {
+  if (role === "Admin") return ADMIN_NAV;
   if (role === "Receptionist") return RECEPTIONIST_NAV;
   if (role === "Doctor") return DOCTOR_NAV;
   return RECEPTIONIST_NAV;
@@ -66,7 +79,11 @@ export function AppSidebar() {
               ClinicalFlow
             </p>
             <p className="mt-0.5 text-[11px] text-sidebar-foreground/65">
-              {user?.role === "Doctor" ? "Doctor workspace" : "Reception desk"}
+              {user?.role === "Doctor"
+                ? "Doctor workspace"
+                : user?.role === "Admin"
+                  ? "Admin workspace"
+                  : "Reception desk"}
             </p>
           </div>
         </div>

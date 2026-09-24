@@ -20,7 +20,24 @@ export interface SessionUser {
 }
 
 export const PERMISSIONS = {
+  Admin: {
+    manageStaff: true,
+    editPatient: true,
+    registerPatient: false,
+    runTriage: false,
+    processPayment: false,
+    runWorkflow: false,
+    recordConsultation: false,
+    signEncounter: false,
+    viewEhr: true,
+    createReferral: false,
+    overrideReferral: false,
+    editRules: false,
+    viewClinic: true,
+  },
   Receptionist: {
+    manageStaff: false,
+    editPatient: false,
     registerPatient: true,
     runTriage: true,
     processPayment: true,
@@ -31,8 +48,11 @@ export const PERMISSIONS = {
     createReferral: false,
     overrideReferral: false,
     editRules: false,
+    viewClinic: false,
   },
   Doctor: {
+    manageStaff: false,
+    editPatient: false,
     registerPatient: false,
     runTriage: false,
     processPayment: false,
@@ -43,6 +63,7 @@ export const PERMISSIONS = {
     createReferral: true,
     overrideReferral: false,
     editRules: true,
+    viewClinic: false,
   },
 } as const satisfies Record<Role, Record<string, boolean>>;
 
@@ -59,7 +80,7 @@ interface SessionValue {
     full_name: string;
     email: string;
     password: string;
-    role: Role;
+    role: "Receptionist" | "Doctor";
     specialty?: string | null;
   }) => Promise<void>;
   logout: () => void;
@@ -118,7 +139,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       full_name: string;
       email: string;
       password: string;
-      role: Role;
+      role: "Receptionist" | "Doctor";
       specialty?: string | null;
     }) => {
       await clinicalApi.signup(input);

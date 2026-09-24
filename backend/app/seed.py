@@ -235,6 +235,30 @@ def seed_users(db: Session) -> None:
         )
         db.commit()
 
+    _ensure_admin(db)
+
+
+def _ensure_admin(db: Session) -> None:
+    if db.scalar(select(User).where(User.email == "admin@clinicalflow.demo")) is not None:
+        return
+    taken = {row.user_id for row in db.scalars(select(User)).all()}
+    n = 1
+    while f"USR-{str(n).zfill(4)}" in taken:
+        n += 1
+    db.add(
+        User(
+            user_id=f"USR-{str(n).zfill(4)}",
+            full_name="Clinic Admin",
+            email="admin@clinicalflow.demo",
+            hashed_password=hash_password("admin123"),
+            role="Admin",
+            specialty=None,
+            is_active=True,
+            created_at=utcnow(),
+        )
+    )
+    db.commit()
+
 
 def seed_appointments(db: Session) -> None:
     from datetime import datetime, timedelta

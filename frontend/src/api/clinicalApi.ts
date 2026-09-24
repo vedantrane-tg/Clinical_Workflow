@@ -20,6 +20,7 @@ import type {
   Appointment,
   ClinicDoctor,
   AppointmentStatus,
+  StaffUser,   
   ConsultationFeeQuote,
 } from "@/types/clinical";
 import { API_BASE_URL, ENDPOINTS } from "./config";
@@ -641,6 +642,64 @@ export const clinicalApi = {
     },
   ): Promise<Appointment> {
     return apiFetch<Appointment>(ENDPOINTS.appointment(id), {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+  },
+
+  listStaff(): Promise<StaffUser[]> {
+    return apiFetch<StaffUser[]>(ENDPOINTS.adminUsers);
+  },
+
+  createStaff(input: {
+    full_name: string;
+    email: string;
+    password: string;
+    role: "Receptionist" | "Doctor";
+    specialty?: string | null;
+  }): Promise<StaffUser> {
+    return apiFetch<StaffUser>(ENDPOINTS.adminUsers, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+
+  updateStaff(
+    id: string,
+    patch: {
+      full_name?: string;
+      email?: string;
+      password?: string;
+      role?: "Receptionist" | "Doctor";
+      specialty?: string | null;
+      is_active?: boolean;
+    },
+  ): Promise<StaffUser> {
+    return apiFetch<StaffUser>(ENDPOINTS.adminUser(id), {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+  },
+
+  updatePatient(
+    id: string,
+    patch: {
+      first_name?: string;
+      middle_name?: string | null;
+      last_name?: string;
+      contact_phone?: string | null;
+      contact_email?: string | null;
+      address?: string | null;
+      pincode?: string | null;
+      guardian_name?: string | null;
+      guardian_relationship?: string | null;
+      guardian_phone?: string | null;
+      guardian_email?: string | null;
+      actor_name?: string;
+      actor_role?: Role;
+    },
+  ): Promise<Patient> {
+    return apiFetch<Patient>(ENDPOINTS.patient(id), {
       method: "PATCH",
       body: JSON.stringify(patch),
     });

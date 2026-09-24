@@ -20,7 +20,8 @@ import type {
   Appointment,
   ClinicDoctor,
   AppointmentStatus,
-  StaffUser,
+  StaffUser,   
+  ConsultationFeeQuote,
 } from "@/types/clinical";
 import { API_BASE_URL, ENDPOINTS } from "./config";
 
@@ -266,7 +267,6 @@ export const clinicalApi = {
     });
   },
 
-  /** POST /payments — Cash / Insurance only */
   /** POST /encounters/{id}/prescription/pdf — generate and download */
   async downloadPrescriptionPdf(
     encounterId: string,
@@ -299,10 +299,10 @@ export const clinicalApi = {
     URL.revokeObjectURL(url);
   },
 
-  /** POST /payments */
+  /** POST /payments — Cash / Insurance only (server sets consultation/follow-up fee) */
   createPayment(input: {
     patient_id: string;
-    amount: number;
+    amount?: number;
     payment_type?: string;
     payment_method: string;
     encounter_id?: string | null;
@@ -315,6 +315,11 @@ export const clinicalApi = {
     });
   },
 
+  /** GET /payments/fee-quote/{patientId} */
+  getConsultationFeeQuote(patientId: string): Promise<ConsultationFeeQuote> {
+    return apiFetch<ConsultationFeeQuote>(ENDPOINTS.paymentFeeQuote(patientId));
+  },
+
   /** GET /payments/razorpay/config */
   getRazorpayConfig(): Promise<{ enabled: boolean; key_id: string | null }> {
     return apiFetch(ENDPOINTS.razorpayConfig);
@@ -323,7 +328,7 @@ export const clinicalApi = {
   /** POST /payments/razorpay/order */
   createRazorpayOrder(input: {
     patient_id: string;
-    amount: number;
+    amount?: number;
     payment_type?: string;
     payment_method: "Card" | "UPI";
     encounter_id?: string | null;
@@ -363,7 +368,7 @@ export const clinicalApi = {
   /** POST /payments/razorpay/upi-qr */
   createUpiQr(input: {
     patient_id: string;
-    amount: number;
+    amount?: number;
     payment_type?: string;
     encounter_id?: string | null;
     actor_name?: string;

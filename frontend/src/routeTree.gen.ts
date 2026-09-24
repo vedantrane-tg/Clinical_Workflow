@@ -19,6 +19,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SpecialistsRouteImport } from './routes/specialists'
 import { Route as WorkflowsRouteImport } from './routes/workflows'
+import { Route as AdminStaffRouteImport } from './routes/admin.staff'
 import { Route as PatientsIndexRouteImport } from './routes/patients.index'
 import { Route as PatientsPatientIdRouteImport } from './routes/patients.$patientId'
 import { Route as ReceptionistNewPatientRouteImport } from './routes/receptionist/new-patient'
@@ -77,6 +78,11 @@ const WorkflowsRoute = WorkflowsRouteImport.update({
   path: '/workflows',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminStaffRoute = AdminStaffRouteImport.update({
+  id: '/admin/staff',
+  path: '/admin/staff',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PatientsIndexRoute = PatientsIndexRouteImport.update({
   id: '/patients/',
   path: '/patients/',
@@ -127,6 +133,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/specialists': typeof SpecialistsRoute
   '/workflows': typeof WorkflowsRoute
+  '/admin/staff': typeof AdminStaffRoute
   '/patients/$patientId': typeof PatientsPatientIdRoute
   '/receptionist/new-patient': typeof ReceptionistNewPatientRoute
   '/patients/': typeof PatientsIndexRoute
@@ -146,6 +153,7 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/specialists': typeof SpecialistsRoute
   '/workflows': typeof WorkflowsRoute
+  '/admin/staff': typeof AdminStaffRoute
   '/patients/$patientId': typeof PatientsPatientIdRoute
   '/receptionist/new-patient': typeof ReceptionistNewPatientRoute
   '/patients': typeof PatientsIndexRoute
@@ -166,6 +174,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/specialists': typeof SpecialistsRoute
   '/workflows': typeof WorkflowsRoute
+  '/admin/staff': typeof AdminStaffRoute
   '/patients/$patientId': typeof PatientsPatientIdRoute
   '/receptionist/new-patient': typeof ReceptionistNewPatientRoute
   '/patients/': typeof PatientsIndexRoute
@@ -187,6 +196,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/specialists'
     | '/workflows'
+    | '/admin/staff'
     | '/patients/$patientId'
     | '/receptionist/new-patient'
     | '/patients/'
@@ -206,6 +216,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/specialists'
     | '/workflows'
+    | '/admin/staff'
     | '/patients/$patientId'
     | '/receptionist/new-patient'
     | '/patients'
@@ -225,6 +236,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/specialists'
     | '/workflows'
+    | '/admin/staff'
     | '/patients/$patientId'
     | '/receptionist/new-patient'
     | '/patients/'
@@ -245,6 +257,7 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   SpecialistsRoute: typeof SpecialistsRoute
   WorkflowsRoute: typeof WorkflowsRoute
+  AdminStaffRoute: typeof AdminStaffRoute
   PatientsPatientIdRoute: typeof PatientsPatientIdRoute
   ReceptionistNewPatientRoute: typeof ReceptionistNewPatientRoute
   PatientsIndexRoute: typeof PatientsIndexRoute
@@ -326,6 +339,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkflowsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/staff': {
+      id: '/admin/staff'
+      path: '/admin/staff'
+      fullPath: '/admin/staff'
+      preLoaderRoute: typeof AdminStaffRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/patients/': {
       id: '/patients/'
       path: '/patients'
@@ -389,6 +409,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   SpecialistsRoute: SpecialistsRoute,
   WorkflowsRoute: WorkflowsRoute,
+  AdminStaffRoute: AdminStaffRoute,
   PatientsPatientIdRoute: PatientsPatientIdRoute,
   ReceptionistNewPatientRoute: ReceptionistNewPatientRoute,
   PatientsIndexRoute: PatientsIndexRoute,

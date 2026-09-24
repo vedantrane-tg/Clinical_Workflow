@@ -28,6 +28,7 @@ from app.routers import (
     payments,
     encounters,
     appointments,
+    admin,
 )
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -77,6 +78,7 @@ app.include_router(queue.router)
 app.include_router(payments.router)
 app.include_router(encounters.router)
 app.include_router(appointments.router)
+app.include_router(admin.router)
 
 @app.get("/health")
 def health():

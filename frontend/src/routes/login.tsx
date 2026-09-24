@@ -37,13 +37,15 @@ function LoginPage() {
     }
   }
 
-  async function quickLogin(kind: "receptionist" | "doctor") {
+  async function quickLogin(kind: "receptionist" | "doctor" | "admin") {
     setBusy(true);
     try {
       if (kind === "receptionist") {
         await login("ananya@clinicalflow.demo", "receptionist123");
-      } else {
+      } else if (kind === "doctor") {
         await login("neha@clinicalflow.demo", "doctor123");
+      } else {
+        await login("admin@clinicalflow.demo", "admin123");
       }
       toast.success("Signed in");
       void navigate({ to: "/" });
@@ -107,7 +109,7 @@ function LoginPage() {
           <div className="h-px flex-1 bg-white/15" />
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid gap-2 sm:grid-cols-3">
           <Button
             type="button"
             variant="outline"
@@ -125,6 +127,15 @@ function LoginPage() {
             className="border-white/20 bg-transparent text-slate-100 hover:bg-white/10 hover:text-white"
           >
             Doctor
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy}
+            onClick={() => void quickLogin("admin")}
+            className="border-white/20 bg-transparent text-slate-100 hover:bg-white/10 hover:text-white"
+          >
+            Admin
           </Button>
         </div>
 

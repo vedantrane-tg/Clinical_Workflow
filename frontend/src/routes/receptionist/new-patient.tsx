@@ -279,7 +279,7 @@ function NewPatientPage() {
   const selectedCountry = countryMeta(form.watch("phone_country_code"));
   const guardianCountry = countryMeta(form.watch("guardian_phone_country_code"));
 
-  if (user && !can("registerPatient")) {
+  if (user && !can("registerPatient") && !can("viewClinic")) {
     return <Navigate to="/" />;
   }
 
@@ -780,7 +780,7 @@ function NewPatientPage() {
             <Button type="button" variant="outline" asChild>
               <Link to="/patients">Cancel</Link>
             </Button>
-            <Button type="submit" disabled={!canSubmit}>
+            <Button type="submit" disabled={!canSubmit || !can("registerPatient")}>
               {createPatient.isPending ? "Registering…" : "Register patient"}
             </Button>
           </div>

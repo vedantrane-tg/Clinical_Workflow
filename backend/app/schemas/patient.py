@@ -245,6 +245,82 @@ class CreatePatientIn(BaseModel):
     # conditions / medications remain optional; validated only when provided.
 
 
+class UpdatePatientIn(BaseModel):
+    """Identity and contact corrections. Clinical notes and payments stay unchanged."""
+
+    first_name: str | None = None
+    middle_name: str | None = None
+    last_name: str | None = None
+    contact_phone: str | None = None
+    contact_email: str | None = None
+    address: str | None = None
+    pincode: str | None = None
+    guardian_name: str | None = None
+    guardian_relationship: str | None = None
+    guardian_phone: str | None = None
+    guardian_email: str | None = None
+    actor_name: str = "Admin"
+    actor_role: str = "Admin"
+
+    @field_validator("first_name", "last_name")
+    @classmethod
+    def validate_optional_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return CreatePatientIn.validate_name_part(value)
+
+    @field_validator("middle_name")
+    @classmethod
+    def validate_optional_middle(cls, value: str | None) -> str | None:
+        return CreatePatientIn.validate_middle_name(value)
+
+    @field_validator("contact_phone")
+    @classmethod
+    def validate_optional_phone(cls, value: str | None) -> str | None:
+        phone = _empty_to_none(value)
+        if phone is None:
+            return None
+        return CreatePatientIn.validate_phone(phone)
+
+    @field_validator("contact_email", "guardian_email")
+    @classmethod
+    def validate_optional_email(cls, value: str | None) -> str | None:
+        return CreatePatientIn.validate_email(value)
+
+    @field_validator("guardian_phone")
+    @classmethod
+    def validate_optional_guardian_phone(cls, value: str | None) -> str | None:
+        phone = _empty_to_none(value)
+        if phone is None:
+            return None
+        return CreatePatientIn.validate_phone(phone)
+
+    @field_validator("address")
+    @classmethod
+    def validate_optional_address(cls, value: str | None) -> str | None:
+        address = _empty_to_none(value)
+        if address is None:
+            return None
+        if len(address) < 5:
+            raise ValueError("Address must be at least 5 characters")
+        return address
+
+    @field_validator("pincode")
+    @classmethod
+    def validate_optional_pincode(cls, value: str | None) -> str | None:
+        pin = _empty_to_none(value)
+        if pin is None:
+            return None
+        if not PINCODE_RE.match(pin):
+            raise ValueError("Enter a valid 6-digit pincode")
+        return pin
+
+    @field_validator("guardian_relationship")
+    @classmethod
+    def validate_optional_relationship(cls, value: str | None) -> str | None:
+        return CreatePatientIn.validate_guardian_relationship(value)
+
+
 class PatientOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

@@ -26,9 +26,20 @@ import {
   patientReferralsQuery,
   summaryQuery,
   useRunWorkflow,
+  useUpdatePatient,
 } from "@/hooks/useClinicalQueries";
 import { useSession } from "@/hooks/useSession";
+import { validatePhoneInput } from "@/lib/phone";
 import type { WorkflowExecution } from "@/types/clinical";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/patients/$patientId")({
   head: ({ params }) => ({
@@ -53,6 +64,19 @@ function PatientDetailPage() {
   const { patientId } = Route.useParams();
   const { user, can } = useSession();
   const [live, setLive] = useState<WorkflowExecution | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    first_name: "",
+    middle_name: "",
+    last_name: "",
+    contact_phone: "",
+    contact_email: "",
+    address: "",
+    pincode: "",
+    guardian_name: "",
+    guardian_phone: "",
+  });
+  const updatePatient = useUpdatePatient(patientId);
 
   const { data: patient, isLoading } = useQuery(patientQuery(patientId));
   const { data: ehr } = useQuery(ehrQuery(patientId));
@@ -92,8 +116,68 @@ function PatientDetailPage() {
     );
   }
 
+  const current = patient;
   const canRun = can("runWorkflow");
-  const status = live?.status ?? patient.workflow_status;
+  const canEdit = can("editPatient");
+  const status = live?.status ?? current.workflow_status;
+
+  function openEdit() {
+    const parts = current.name.trim().split(/\s+/);
+    setEditForm({
+      first_name: current.first_name || parts[0] || "",
+      middle_name: current.middle_name || "",
+      last_name: current.last_name || parts.slice(1).join(" "),
+      contact_phone: current.contact_phone || "",
+      contact_email: current.contact_email || "",
+      address: current.address || "",
+      pincode: current.pincode || "",
+      guardian_name: current.guardian_name || "",
+      guardian_phone: current.guardian_phone || "",
+    });
+    setEditOpen(true);
+  }
+
+  async function savePatient() {
+    if (editForm.contact_phone.trim()) {
+      const phone = validatePhoneInput(editForm.contact_phone);
+      if (!phone.ok) {
+        toast.error(phone.error);
+        return;
+      }
+    }
+    if (editForm.guardian_phone.trim()) {
+      const phone = validatePhoneInput(editForm.guardian_phone);
+      if (!phone.ok) {
+        toast.error(`Guardian phone: ${phone.error}`);
+        return;
+      }
+    }
+    try {
+      const contact = editForm.contact_phone.trim()
+        ? validatePhoneInput(editForm.contact_phone)
+        : null;
+      const guardian = editForm.guardian_phone.trim()
+        ? validatePhoneInput(editForm.guardian_phone)
+        : null;
+      await updatePatient.mutateAsync({
+        first_name: editForm.first_name.trim(),
+        middle_name: editForm.middle_name.trim() || null,
+        last_name: editForm.last_name.trim(),
+        contact_phone: contact && contact.ok ? contact.e164 : null,
+        contact_email: editForm.contact_email.trim() || null,
+        address: editForm.address.trim() || null,
+        pincode: editForm.pincode.trim() || null,
+        guardian_name: editForm.guardian_name.trim() || null,
+        guardian_phone: guardian && guardian.ok ? guardian.e164 : null,
+        actor_name: user?.name ?? "Admin",
+        actor_role: user?.role ?? "Admin",
+      });
+      toast.success("Patient details updated");
+      setEditOpen(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not update patient");
+    }
+  }
 
   return (
     <>
@@ -109,6 +193,11 @@ function PatientDetailPage() {
         description={`${patient.patient_id} · ${patient.age} yrs · ${patient.gender} · DOB ${patient.date_of_birth}`}
         actions={
           <>
+            {canEdit ? (
+              <Button type="button" variant="outline" onClick={openEdit}>
+                Edit details
+              </Button>
+            ) : null}
             <SeverityBadge severity={patient.risk} suffix=" Risk" />
             <WorkflowStatusBadge status={status} />
             <Button
@@ -402,6 +491,90 @@ function PatientDetailPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit patient details</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3 py-2 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-first">First name</Label>
+              <Input
+                id="edit-first"
+                value={editForm.first_name}
+                onChange={(e) => setEditForm((f) => ({ ...f, first_name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-last">Last name</Label>
+              <Input
+                id="edit-last"
+                value={editForm.last_name}
+                onChange={(e) => setEditForm((f) => ({ ...f, last_name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-phone">Phone</Label>
+              <Input
+                id="edit-phone"
+                value={editForm.contact_phone}
+                onChange={(e) => setEditForm((f) => ({ ...f, contact_phone: e.target.value }))}
+                placeholder="9876543210"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-email">Email</Label>
+              <Input
+                id="edit-email"
+                value={editForm.contact_email}
+                onChange={(e) => setEditForm((f) => ({ ...f, contact_email: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="edit-address">Address</Label>
+              <Input
+                id="edit-address"
+                value={editForm.address}
+                onChange={(e) => setEditForm((f) => ({ ...f, address: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-pin">Pincode</Label>
+              <Input
+                id="edit-pin"
+                value={editForm.pincode}
+                onChange={(e) => setEditForm((f) => ({ ...f, pincode: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-guardian">Guardian name</Label>
+              <Input
+                id="edit-guardian"
+                value={editForm.guardian_name}
+                onChange={(e) => setEditForm((f) => ({ ...f, guardian_name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="edit-gphone">Guardian phone</Label>
+              <Input
+                id="edit-gphone"
+                value={editForm.guardian_phone}
+                onChange={(e) => setEditForm((f) => ({ ...f, guardian_phone: e.target.value }))}
+                placeholder="9876543210"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" disabled={updatePatient.isPending} onClick={() => void savePatient()}>
+              {updatePatient.isPending ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

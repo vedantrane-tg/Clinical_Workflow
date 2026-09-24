@@ -91,12 +91,14 @@ function whatsappHref(phone: string | null | undefined, patientName: string): st
 
 function Dashboard() {
   const { user } = useSession();
-  if (user?.role === "Receptionist") return <ReceptionistDashboard />;
+  if (user?.role === "Admin" || user?.role === "Receptionist") return <ReceptionistDashboard />;
   if (user?.role === "Doctor") return <DoctorDashboard />;
   return <LegacyOpsDashboard />;
 }
 
 function ReceptionistDashboard() {
+  const { user, can } = useSession();
+  const isAdmin = user?.role === "Admin";
   const { data: patients, isLoading, isError, refetch } = usePatients();
   const {
     data: queues,
@@ -159,15 +161,21 @@ let today = date.toLocaleDateString();
   return (
     <>
       <PageHeader
-        title="Intake overview"
-        description="Register patients, run triage, collect payment, and track the waiting queue."
+        title={isAdmin ? "Clinic overview" : "Intake overview"}
+        description={
+          isAdmin
+            ? "All queues, patients, and visit status. Open Calendar, Workflows, Referrals, and a patient record for the rest."
+            : "Register patients, run triage, collect payment, and track the waiting queue."
+        }
         actions={
-          <Button asChild>
-            <Link to="/receptionist/new-patient">
-              <ClipboardPlus className="mr-1.5 size-4" />
-              New patient
-            </Link>
-          </Button>
+          can("registerPatient") ? (
+            <Button asChild>
+              <Link to="/receptionist/new-patient">
+                <ClipboardPlus className="mr-1.5 size-4" />
+                New patient
+              </Link>
+            </Button>
+          ) : null
         }
       />
 
@@ -190,9 +198,11 @@ let today = date.toLocaleDateString();
               title="No one waiting"
               description="Register a patient, run triage, then process payment to add them to a doctor queue."
               action={
-                <Button asChild>
-                  <Link to="/receptionist/new-patient">Register patient</Link>
-                </Button>
+                can("registerPatient") ? (
+                  <Button asChild>
+                    <Link to="/receptionist/new-patient">Register patient</Link>
+                  </Button>
+                ) : undefined
               }
             />
           ) : (

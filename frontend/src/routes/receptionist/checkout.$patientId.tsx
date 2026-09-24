@@ -91,7 +91,7 @@ function CheckoutPage() {
     };
   }, [upiQr, receipt]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!can("processPayment")) {
+  if (!can("processPayment") && !can("viewClinic")) {
     return <Navigate to="/" />;
   }
 
@@ -341,7 +341,7 @@ function CheckoutPage() {
             <div className="flex justify-end">
               <Button
                 type="button"
-                disabled={pending || (needsRazorpay && !razorpayEnabled)}
+                disabled={!can("processPayment") || pending || (needsRazorpay && !razorpayEnabled)}
                 onClick={() => void processPayment()}
               >
                 {pending

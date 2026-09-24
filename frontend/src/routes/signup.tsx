@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSession } from "@/hooks/useSession";
-import type { Role } from "@/types/clinical";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({
@@ -23,7 +22,7 @@ function SignupPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<Role>("Receptionist");
+  const [role, setRole] = useState<"Receptionist" | "Doctor">("Receptionist");
   const [specialty, setSpecialty] = useState("");
   const [busy, setBusy] = useState(false);
 

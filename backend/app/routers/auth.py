@@ -19,7 +19,7 @@ class SignupRequest(BaseModel):
     full_name: str = Field(min_length=1)
     email: str
     password: str = Field(min_length=6)
-    role: str  # "Receptionist" | "Doctor"
+    role: str  # public signup: "Receptionist" | "Doctor" only
     specialty: str | None = None
 
 

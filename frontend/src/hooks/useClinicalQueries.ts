@@ -21,6 +21,7 @@ export const qk = {
   consultation: (id: string) => ["consultations", id] as const,
   appointments: (rangeKey: string) => ["appointments", rangeKey] as const,
   clinicDoctors: ["appointments", "doctors"] as const,
+  staff: ["admin", "users"] as const,
 };
 
 export const patientsQuery = () =>
@@ -272,5 +273,48 @@ export function useUpdateAppointment() {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       queryClient.invalidateQueries({ queryKey: qk.audit });
     },
+  });
+}
+
+export const staffQuery = () =>
+  queryOptions({ queryKey: qk.staff, queryFn: () => clinicalApi.listStaff() });
+
+export function useCreateStaff() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: clinicalApi.createStaff.bind(clinicalApi),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.staff });
+      queryClient.invalidateQueries({ queryKey: qk.clinicDoctors });
+      queryClient.invalidateQueries({ queryKey: qk.audit });
+    },
+  });
+}
+
+export function useUpdateStaff() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      patch,
+    }: {
+      id: string;
+      patch: Parameters<typeof clinicalApi.updateStaff>[1];
+    }) => clinicalApi.updateStaff(id, patch),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.staff });
+      queryClient.invalidateQueries({ queryKey: qk.clinicDoctors });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: qk.audit });
+    },
+  });
+}
+
+export function useUpdatePatient(patientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: Parameters<typeof clinicalApi.updatePatient>[1]) =>
+      clinicalApi.updatePatient(patientId, patch),
+    onSuccess: () => invalidateAll(queryClient, patientId),
   });
 }

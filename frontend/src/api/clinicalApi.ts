@@ -704,4 +704,51 @@ export const clinicalApi = {
       body: JSON.stringify(patch),
     });
   },
+
+  deleteStaff(id: string): Promise<void> {
+    return apiFetch<void>(ENDPOINTS.adminUser(id), { method: "DELETE" });
+  },
+
+  deletePatient(id: string): Promise<void> {
+    return apiFetch<void>(ENDPOINTS.patient(id), { method: "DELETE" });
+  },
+
+  getPatientHistory(id: string): Promise<{
+    patient_id: string;
+    audit_logs: {
+      audit_id: string;
+      user: string;
+      role: string;
+      action: string;
+      agent: string | null;
+      timestamp: string | null;
+      result: string;
+    }[];
+    appointments: {
+      appointment_id: string;
+      doctor_name: string;
+      starts_at: string | null;
+      duration_minutes: number;
+      visit_type: string;
+      reason: string | null;
+      status: string;
+      notes: string | null;
+    }[];
+    encounters: {
+      encounter_id: string;
+      doctor_name: string;
+      status: string;
+      soap_subjective: string | null;
+      soap_objective: string | null;
+      soap_assessment: string | null;
+      soap_plan: string | null;
+      finalized_at: string | null;
+      created_at: string | null;
+      approved_medications: Record<string, unknown>[];
+      approved_labs: Record<string, unknown>[];
+      approved_icd_codes: Record<string, unknown>[];
+    }[];
+  }> {
+    return apiFetch(ENDPOINTS.patientHistory(id));
+  },
 };

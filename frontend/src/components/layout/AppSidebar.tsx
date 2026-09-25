@@ -45,11 +45,7 @@ const DOCTOR_NAV: NavItem[] = [
 const ADMIN_NAV: NavItem[] = [
   { label: "Dashboard", to: "/", icon: LayoutDashboard, exact: true },
   { label: "Staff", to: "/admin/staff", icon: Shield },
-  { label: "Calendar", to: "/calendar", icon: CalendarDays },
   { label: "Patients", to: "/patients", icon: Users },
-  { label: "Workflow Monitor", to: "/workflows", icon: Activity },
-  { label: "Referrals", to: "/referrals", icon: Send },
-  { label: "Specialists", to: "/specialists", icon: Stethoscope },
   { label: "Audit Trail", to: "/audit", icon: FileClock },
 ];
 

@@ -159,3 +159,24 @@ def update_staff(
     db.commit()
     db.refresh(user)
     return user
+
+
+@router.delete("/users/{user_id}", status_code=204)
+def delete_staff(
+    user_id: str,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    user = db.get(User, user_id)
+    if not user or user.role == "Admin":
+        raise HTTPException(status_code=404, detail=f"Staff user {user_id} not found")
+
+    write_audit(
+        db,
+        user=admin.full_name,
+        role=admin.role,
+        action=f"Admin permanently deleted {user.role} {user.user_id} ({user.email})",
+    )
+    db.delete(user)
+    db.commit()
+

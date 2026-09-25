@@ -59,4 +59,5 @@ export const ENDPOINTS = {
   referralRules: "/referral-rules",
   agentsStatus: "/agents/status",
   audit: "/audit",
+  patientHistory: (id: string) => `/patients/${id}/history`,
 } as const;

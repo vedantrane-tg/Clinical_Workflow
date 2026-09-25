@@ -326,3 +326,33 @@ export function useUpdatePatient(patientId: string) {
     onSuccess: () => invalidateAll(queryClient, patientId),
   });
 }
+
+export function useDeleteStaff() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => clinicalApi.deleteStaff(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.staff });
+      queryClient.invalidateQueries({ queryKey: qk.clinicDoctors });
+      queryClient.invalidateQueries({ queryKey: qk.audit });
+    },
+  });
+}
+
+export function useDeletePatient() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => clinicalApi.deletePatient(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.patients });
+      queryClient.invalidateQueries({ queryKey: qk.audit });
+    },
+  });
+}
+
+export const patientHistoryQuery = (id: string) =>
+  queryOptions({
+    queryKey: ["patients", id, "history"] as const,
+    queryFn: () => clinicalApi.getPatientHistory(id),
+    enabled: Boolean(id),
+  });

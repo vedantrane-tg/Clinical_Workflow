@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Pencil, UserPlus } from "lucide-react";
+import { Pencil, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { QueryError } from "@/components/common/QueryError";
@@ -14,6 +14,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,7 +27,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { staffQuery, useCreateStaff, useUpdateStaff } from "@/hooks/useClinicalQueries";
+import { staffQuery, useCreateStaff, useDeleteStaff, useUpdateStaff } from "@/hooks/useClinicalQueries";
 import type { StaffUser } from "@/types/clinical";
 
 export const Route = createFileRoute("/admin/staff")({
@@ -45,8 +46,10 @@ function StaffPage() {
   const staffQ = useQuery(staffQuery());
   const createStaff = useCreateStaff();
   const updateStaff = useUpdateStaff();
+  const deleteStaff = useDeleteStaff();
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<StaffUser | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<StaffUser | null>(null);
   const [form, setForm] = useState({
     full_name: "",
     email: "",
@@ -125,6 +128,17 @@ function StaffPage() {
     }
   }
 
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    try {
+      await deleteStaff.mutateAsync(deleteTarget.user_id);
+      toast.success(`${deleteTarget.full_name} has been permanently deleted`);
+      setDeleteTarget(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not delete staff member");
+    }
+  }
+
   const staffForm = (
     <div className="grid gap-3 py-2">
       <div className="space-y-1.5">
@@ -200,7 +214,7 @@ function StaffPage() {
     <>
       <PageHeader
         title="Staff"
-        description="Create and update receptionist and doctor accounts."
+        description="Create, update, and permanently delete receptionist and doctor accounts."
         actions={
           <Button type="button" onClick={openCreate}>
             <UserPlus className="mr-1.5 size-4" />
@@ -242,10 +256,21 @@ function StaffPage() {
                       </Pill>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button type="button" size="sm" variant="outline" onClick={() => openEdit(user)}>
-                        <Pencil className="mr-1 size-3.5" />
-                        Edit
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button type="button" size="sm" variant="outline" onClick={() => openEdit(user)}>
+                          <Pencil className="mr-1 size-3.5" />
+                          Edit
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => setDeleteTarget(user)}
+                        >
+                          <Trash2 className="mr-1 size-3.5" />
+                          Delete
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -255,6 +280,7 @@ function StaffPage() {
         </CardContent>
       </Card>
 
+      {/* Create dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
@@ -272,6 +298,7 @@ function StaffPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit dialog */}
       <Dialog open={Boolean(editing)} onOpenChange={(open) => !open && setEditing(null)}>
         <DialogContent>
           <DialogHeader>
@@ -284,6 +311,33 @@ function StaffPage() {
             </Button>
             <Button type="button" disabled={updateStaff.isPending} onClick={() => void submitEdit()}>
               {updateStaff.isPending ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-destructive">Permanently delete staff member</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to permanently delete{" "}
+              <span className="font-semibold text-foreground">{deleteTarget?.full_name}</span> (
+              {deleteTarget?.role})? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleteStaff.isPending}
+              onClick={() => void confirmDelete()}
+            >
+              {deleteStaff.isPending ? "Deleting…" : "Yes, delete permanently"}
             </Button>
           </DialogFooter>
         </DialogContent>

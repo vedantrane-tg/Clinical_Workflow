@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_admin
 from app.database import get_db
-from app.models import Appointment, ClinicalSummary, ExtractedEHR, Patient, User
+from app.models import Appointment, AuditEntry, ClinicalSummary, Encounter, ExtractedEHR, Patient, User
 from app.schemas.patient import UpdatePatientIn
 
 from datetime import date
@@ -194,3 +194,101 @@ def get_patient_summary(patient_id: str, db: Session = Depends(get_db)):
     if not db.get(Patient, patient_id):
         raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
     return db.get(ClinicalSummary, patient_id)
+
+
+@router.get("/patients/{patient_id}/history")
+def get_patient_history(patient_id: str, db: Session = Depends(get_db)):
+    """Return audit logs, appointments, and encounters for a patient (admin history view)."""
+    if not db.get(Patient, patient_id):
+        raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
+
+    audit_rows = list(
+        db.scalars(
+            select(AuditEntry)
+            .where(AuditEntry.patient_id == patient_id)
+            .order_by(AuditEntry.timestamp.desc())
+        ).all()
+    )
+
+    appointments = list(
+        db.scalars(
+            select(Appointment)
+            .where(Appointment.patient_id == patient_id)
+            .order_by(Appointment.starts_at.desc())
+        ).all()
+    )
+
+    encounters = list(
+        db.scalars(
+            select(Encounter)
+            .where(Encounter.patient_id == patient_id)
+            .order_by(Encounter.created_at.desc())
+        ).all()
+    )
+
+    return {
+        "patient_id": patient_id,
+        "audit_logs": [
+            {
+                "audit_id": a.audit_id,
+                "user": a.user,
+                "role": a.role,
+                "action": a.action,
+                "agent": a.agent,
+                "timestamp": a.timestamp.isoformat() if a.timestamp else None,
+                "result": a.result,
+            }
+            for a in audit_rows
+        ],
+        "appointments": [
+            {
+                "appointment_id": a.appointment_id,
+                "doctor_name": a.doctor_name,
+                "starts_at": a.starts_at.isoformat() if a.starts_at else None,
+                "duration_minutes": a.duration_minutes,
+                "visit_type": a.visit_type,
+                "reason": a.reason,
+                "status": a.status,
+                "notes": a.notes,
+            }
+            for a in appointments
+        ],
+        "encounters": [
+            {
+                "encounter_id": e.encounter_id,
+                "doctor_name": e.doctor_name,
+                "status": e.status,
+                "soap_subjective": e.soap_subjective,
+                "soap_objective": e.soap_objective,
+                "soap_assessment": e.soap_assessment,
+                "soap_plan": e.soap_plan,
+                "finalized_at": e.finalized_at.isoformat() if e.finalized_at else None,
+                "created_at": e.created_at.isoformat() if e.created_at else None,
+                "approved_medications": e.approved_medications or [],
+                "approved_labs": e.approved_labs or [],
+                "approved_icd_codes": e.approved_icd_codes or [],
+            }
+            for e in encounters
+        ],
+    }
+
+
+@router.delete("/patients/{patient_id}", status_code=204)
+def delete_patient(
+    patient_id: str,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    patient = db.get(Patient, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
+
+    write_audit(
+        db,
+        user=admin.full_name,
+        role=admin.role,
+        action=f"Admin permanently deleted patient {patient.patient_id} ({patient.name})",
+        patient_id=patient_id,
+    )
+    db.delete(patient)
+    db.commit()

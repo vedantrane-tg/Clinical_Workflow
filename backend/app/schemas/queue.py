@@ -16,6 +16,7 @@ class QueuePatientOut(BaseModel):
     risk: str
     acuity_hint: str | None = None
     contact_phone: str | None = None
+    visit_paid: bool = False
 
 
 class DoctorQueueOut(BaseModel):

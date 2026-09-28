@@ -216,7 +216,7 @@ let today = date.toLocaleDateString();
                   <TableHead>Wait</TableHead>
                   <TableHead>Severity</TableHead>
                   <TableHead>Contact</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
+                  <TableHead className="text-right">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -264,11 +264,17 @@ let today = date.toLocaleDateString();
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button asChild size="sm" variant="outline">
-                        <Link to="/receptionist/checkout/$patientId" params={{ patientId: row.patient_id }}>
-                          Checkout
+                      {row.visit_paid ? (
+                        <Pill tone="success">Payment done</Pill>
+                      ) : (
+                        <Link
+                          to="/receptionist/checkout/$patientId"
+                          params={{ patientId: row.patient_id }}
+                          className="inline-flex"
+                        >
+                          <Pill tone="warning">Payment pending</Pill>
                         </Link>
-                      </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

@@ -71,12 +71,13 @@ function formatWaitDuration(checkedInAt: string | null): string {
   if (Number.isNaN(ms) || ms < 0) return "—";
 
   const totalSeconds = Math.floor(ms / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
 
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${hours}:${pad(minutes)}:${pad(seconds)}`;
+  return `${days}:${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
 }
 
 function whatsappHref(phone: string | null | undefined, patientName: string): string | null {
@@ -156,12 +157,12 @@ function ReceptionistDashboard() {
       />
     );
   }
-let date = new Date();
-let today = date.toLocaleDateString();
+  let date = new Date();
+  let today = date.toLocaleDateString();
   return (
     <>
       <PageHeader
-        title={isAdmin ? "Clinic overview" : "Intake overview"}
+        title={isAdmin ? "Clinic overview" : "Dashboard"}
         description={
           isAdmin
             ? "All queues, patients, and visit status. Open Calendar, Workflows, Referrals, and a patient record for the rest."
@@ -188,7 +189,7 @@ let today = date.toLocaleDateString();
 
       <Card className="shadow-card">
         <CardHeader>
-          <CardTitle className="text-base">Patient Onqueue</CardTitle>
+          <CardTitle className="text-base">Patients in Queue</CardTitle>
           <CardDescription>Patients waiting after triage and payment routing.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -211,12 +212,12 @@ let today = date.toLocaleDateString();
                 <TableRow>
                   <TableHead>#</TableHead>
                   <TableHead>Patient</TableHead>
-                  <TableHead>Complaint</TableHead>
+                  <TableHead>Reason</TableHead>
                   <TableHead>Doctor</TableHead>
-                  <TableHead>Wait</TableHead>
                   <TableHead>Severity</TableHead>
                   <TableHead>Contact</TableHead>
-                  <TableHead className="text-right">Status</TableHead>
+                  <TableHead>Wait Time</TableHead>
+                  <TableHead className="text-right">Payment Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -234,7 +235,6 @@ let today = date.toLocaleDateString();
                       <div>{row.doctor_name}</div>
                       <div className="text-xs text-muted-foreground">{row.specialty}</div>
                     </TableCell>
-                    <TableCell>{formatWaitDuration(row.checked_in_at)}</TableCell>
                     <TableCell>
                       {row.acuity_hint ? (
                         <AcuityBadge level={row.acuity_hint} />
@@ -263,6 +263,7 @@ let today = date.toLocaleDateString();
                         "—"
                       )}
                     </TableCell>
+                    <TableCell className="tabular-nums font-mono text-sm">{formatWaitDuration(row.checked_in_at)}</TableCell>
                     <TableCell className="text-right">
                       {row.visit_paid ? (
                         <Pill tone="success">Payment done</Pill>
@@ -327,7 +328,7 @@ function DoctorDashboard() {
   return (
     <>
       <PageHeader
-        title="My queue"
+        title="Patients Queue"
         description="Patients routed by triage. Start a consultation when ready."
         actions={
           <Button asChild variant="outline">
@@ -364,11 +365,11 @@ function DoctorDashboard() {
                 <TableRow>
                   <TableHead>#</TableHead>
                   <TableHead>Patient</TableHead>
-                  <TableHead>Complaint</TableHead>
+                  <TableHead>Reason</TableHead>
                   <TableHead>Doctor / Specialty</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Acuity</TableHead>
-                  <TableHead>Wait</TableHead>
+                  <TableHead>Severity</TableHead>
+                  <TableHead>Wait Time</TableHead>
                   <TableHead className="text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>

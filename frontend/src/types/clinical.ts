@@ -278,6 +278,7 @@ export interface QueuePatient {
   risk: string;
   acuity_hint: string | null;
   contact_phone: string | null;
+  visit_paid: boolean;
 }
 
 export interface DoctorQueue {
